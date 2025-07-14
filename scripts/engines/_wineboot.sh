@@ -60,13 +60,24 @@ else
   echo "Keine Wine-Version angegeben – Standard bleibt erhalten"
 fi
 
-INSTALLER=$(find "$DOWNLOAD_DIR" -type f -iname "*.exe" | head -n 1)
-if [[ ! -f "$INSTALLER" ]]; then
-  echo -e "${RED}Kein Installer in $DOWNLOAD_DIR gefunden${NC}"
-  exit 1
+INSTALLERS=()
+
+EXPLICIT_INSTALLERS=$(jq -r '.installers[]?' "$GAME_CONFIG" 2>/dev/null)
+
+if [[ -n "$EXPLICIT_INSTALLERS" ]]; then
+  echo "Verwende explizit konfigurierte Installer:"
+  while IFS= read -r line; do
+    INSTALLERS+=("$DOWNLOAD_DIR/$line")
+  done <<< "$EXPLICIT_INSTALLERS"
+else
+  echo "Keine Installer-Liste gefunden – verwende alle .exe im Download-Verzeichnis"
+  mapfile -t INSTALLERS < <(find "$DOWNLOAD_DIR" -type f -iname "*.exe" | sort)
 fi
 
-wine "$INSTALLER" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-
+for INSTALLER in "${INSTALLERS[@]}"; do
+  echo "→ Installiere: $INSTALLER"
+  wine "$INSTALLER" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-
+done
 
 # start.sh erzeugen
 cat > "$INSTALL_DIR/start.sh" <<EOF
