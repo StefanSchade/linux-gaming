@@ -17,21 +17,15 @@ INSTALL_DIR="$INSTALL_PATH/$GAME_ID"
 DOWNLOAD_DIR="$DOWNLOAD_PATH/$GAME_ID"
 CONFIG_DIR="$CONFIG_PATH/$GAME_ID"
 GAME_CONFIG="$CONFIG_DIR/game.json"
-GLOBAL_CONFIG="$CONFIG_PATH/global.json"
 
 if [[ ! -f "$GAME_CONFIG" ]]; then
   echo -e "${RED}Fehler: $GAME_CONFIG fehlt${NC}"
   exit 1
 fi
 
-if [[ ! -f "$GLOBAL_CONFIG" ]]; then
-  echo -e "${RED}Fehler: $GLOBAL_CONFIG fehlt${NC}"
-  exit 1
-fi
-
 EXE_PATH=$(jq -r '.exe_path' "$GAME_CONFIG")
 EXE_FILE=$(jq -r '.exe_file' "$GAME_CONFIG")
-WINE_SAVE_PATH=$(jq -r '.wine_save_path' "$GLOBAL_CONFIG")
+SAVEDIR="$SAVEGAME_PATH/$GAME_ID"
 
 if [[ "$EXE_PATH" == "null" || "$EXE_FILE" == "null" ]]; then
   echo -e "${RED}Fehler: exe_path oder exe_file fehlt in $GAME_CONFIG${NC}"
@@ -48,10 +42,8 @@ mkdir -p "$INSTALL_DIR/prefix"
 cd "$INSTALL_DIR"
 export WINEPREFIX="$INSTALL_DIR/prefix"
 
-# Initialisiere Prefix
 wineboot -u
 
-# Optional: Wine-Version setzen
 WINE_VERSION=$(jq -r '.wine_version // empty' "$GAME_CONFIG")
 if [[ -n "$WINE_VERSION" && "$WINE_VERSION" != "null" ]]; then
   echo "Setze Wine-Version auf $WINE_VERSION"
@@ -61,7 +53,6 @@ else
 fi
 
 INSTALLERS=()
-
 EXPLICIT_INSTALLERS=$(jq -r '.installers[]?' "$GAME_CONFIG" 2>/dev/null)
 
 if [[ -n "$EXPLICIT_INSTALLERS" ]]; then
@@ -79,28 +70,102 @@ for INSTALLER in "${INSTALLERS[@]}"; do
   wine "$INSTALLER" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-
 done
 
-# start.sh erzeugen
-cat > "$INSTALL_DIR/start.sh" <<EOF
+# Absolute Pfade für Start- und Hilfsskripte vorbereiten
+START_SH="$INSTALL_DIR/start.sh"
+UNINSTALL_SH="$INSTALL_DIR/uninstall.sh"
+ROTATE_OUT="$INSTALL_DIR/rotate_save_to_slot.sh"
+ROTATE_IN="$INSTALL_DIR/rotate_slot_to_save.sh"
+LIST_SLOTS="$INSTALL_DIR/list_slots.sh"
+DELETE_SLOT="$INSTALL_DIR/delete_slot.sh"
+
+# start.sh
+cat > "$START_SH" <<EOF
 #!/bin/bash
 export WINEPREFIX="$INSTALL_DIR/prefix"
 export WINEDEBUG=-all
-export WINE_SAVEDIR="${WINE_SAVE_PATH}/${GAME_ID}"
+export SAVEDIR="$SAVEDIR"
 cd "\$WINEPREFIX/drive_c/$EXE_PATH"
 wine "$EXE_FILE"
 EOF
-chmod +x "$INSTALL_DIR/start.sh"
+chmod +x "$START_SH"
 
-# uninstall.sh erzeugen
-cat > "$INSTALL_DIR/uninstall.sh" <<EOF
+# uninstall.sh
+cat > "$UNINSTALL_SH" <<EOF
 #!/bin/bash
 echo "Entferne Spiel: $GAME_ID"
-rm -rf "\$(dirname "\$0")/prefix"
-rm -rf "\$(dirname "\$0")/start.sh"
-rm -rf "\$(dirname "\$0")/uninstall.sh"
-
+rm -rf "$INSTALL_DIR"
 EOF
-chmod +x "$INSTALL_DIR/uninstall.sh"
+chmod +x "$UNINSTALL_SH"
 
-echo -e "${GREEN}Installation abgeschlossen. Starte das Spiel mit:$NC"
-echo "$INSTALL_DIR/start.sh"
+# rotate_save_to_slot.sh
+cat > "$ROTATE_OUT" <<EOF
+#!/bin/bash
+set -e
+SLOT="\$1"
+if [[ -z "\$SLOT" ]]; then
+  echo "Usage: \$0 <slotname>"
+  exit 1
+fi
+SRC="$SAVEDIR"
+DEST="$SAVESLOT_PATH/$GAME_ID/\$SLOT"
+mkdir -p "\$DEST"
+cp -r "\$SRC/"* "\$DEST/"
+echo "Savegame wurde nach Slot '\$SLOT' exportiert."
+EOF
+chmod +x "$ROTATE_OUT"
+
+# rotate_slot_to_save.sh
+cat > "$ROTATE_IN" <<EOF
+#!/bin/bash
+set -e
+SLOT="\$1"
+if [[ -z "\$SLOT" ]]; then
+  echo "Usage: \$0 <slotname>"
+  exit 1
+fi
+SRC="$SAVESLOT_PATH/$GAME_ID/\$SLOT"
+DEST="$SAVEDIR"
+if [[ ! -d "\$SRC" ]]; then
+  echo "Slot nicht gefunden: \$SRC"
+  exit 1
+fi
+cp -r "\$SRC/"* "\$DEST/"
+echo "Slot '\$SLOT' wurde ins Spielverzeichnis wiederhergestellt."
+EOF
+chmod +x "$ROTATE_IN"
+
+# list_slots.sh
+cat > "$LIST_SLOTS" <<EOF
+#!/bin/bash
+SLOTDIR="$SAVESLOT_PATH/$GAME_ID"
+if [[ ! -d "\$SLOTDIR" ]]; then
+  echo "Keine Slots gefunden für $GAME_ID."
+  exit 0
+fi
+echo "Verfügbare Slots für $GAME_ID:"
+ls -1 "\$SLOTDIR"
+EOF
+chmod +x "$LIST_SLOTS"
+
+# delete_slot.sh
+cat > "$DELETE_SLOT" <<EOF
+#!/bin/bash
+set -e
+SLOT="\$1"
+if [[ -z "\$SLOT" ]]; then
+  echo "Usage: \$0 <slotname>"
+  exit 1
+fi
+SLOT_DIR="$SAVESLOT_PATH/$GAME_ID/\$SLOT"
+if [[ ! -d "\$SLOT_DIR" ]]; then
+  echo "Slot '\$SLOT' existiert nicht."
+  exit 1
+fi
+rm -rf "\$SLOT_DIR"
+echo "Slot '\$SLOT' wurde gelöscht."
+EOF
+chmod +x "$DELETE_SLOT"
+
+echo -e "${GREEN}Installation abgeschlossen. Starte das Spiel mit:${NC}"
+echo "$START_SH"
 
