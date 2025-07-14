@@ -20,7 +20,6 @@ if [[ ! -f "$GAME_CONFIG" ]]; then
 fi
 
 ENGINE=$(jq -r '.engine' "$GAME_CONFIG")
-
 ENGINE_SCRIPT="$(dirname "$0")/engines/_${ENGINE,,}.sh"
 
 if [[ ! -f "$ENGINE_SCRIPT" ]]; then
@@ -30,13 +29,34 @@ if [[ ! -f "$ENGINE_SCRIPT" ]]; then
   exit 1
 fi
 
+# Spielverzeichnis vorbereiten
+GAME_DIR="$INSTALL_PATH/$GAME_ID"
+mkdir -p "$GAME_DIR"
 
+# Wenn die Engine abhaengige Installation erfolgreich ist...
+if "$ENGINE_SCRIPT" "$GAME_ID"; then
 
+  # ... Slot-Tools generieren
+  for TEMPLATE in rotate_save_to_slot rotate_slot_to_save list_slots delete_slot; do
+    TEMPLATE_PATH="$(dirname "$0")/templates/${TEMPLATE}.template.sh"
+    TARGET_PATH="$GAME_DIR/${TEMPLATE}.sh"
 
-if [[ ! -f "$ENGINE_SCRIPT" ]]; then
-  echo -e "${RED}Engine '$ENGINE' nicht unterstützt oder Script fehlt: $ENGINE_SCRIPT${NC}"
+    if [[ ! -f "$TEMPLATE_PATH" ]]; then
+      echo -e "${RED}Template fehlt: $TEMPLATE_PATH${NC}"
+      exit 1
+    fi
+
+    sed \
+      -e "s|__SAVEGAME_PATH__|$SAVEGAME_PATH|g" \
+      -e "s|__SAVESLOT_PATH__|$SAVESLOT_PATH|g" \
+      -e "s|__GAME_ID__|$GAME_ID|g" \
+      "$TEMPLATE_PATH" > "$TARGET_PATH"
+
+    chmod +x "$TARGET_PATH"
+    echo "Generiert: $TARGET_PATH"
+  done
+
+else
+  echo -e "${RED}Engine-Installation fehlgeschlagen, Slot-Tools nicht erzeugt.${NC}"
   exit 1
 fi
-
-"$ENGINE_SCRIPT" "$GAME_ID"
-
