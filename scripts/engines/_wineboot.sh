@@ -47,7 +47,18 @@ echo -e "${GREEN}Installation wird gestartet...${NC}"
 mkdir -p "$INSTALL_DIR/prefix"
 cd "$INSTALL_DIR"
 export WINEPREFIX="$INSTALL_DIR/prefix"
+
+# Initialisiere Prefix
 wineboot -u
+
+# Optional: Wine-Version setzen
+WINE_VERSION=$(jq -r '.wine_version // empty' "$GAME_CONFIG")
+if [[ -n "$WINE_VERSION" && "$WINE_VERSION" != "null" ]]; then
+  echo "Setze Wine-Version auf $WINE_VERSION"
+  wine reg add "HKCU\\Software\\Wine" /v Version /d "$WINE_VERSION" /f
+else
+  echo "Keine Wine-Version angegeben – Standard bleibt erhalten"
+fi
 
 INSTALLER=$(find "$DOWNLOAD_DIR" -type f -iname "*.exe" | head -n 1)
 if [[ ! -f "$INSTALLER" ]]; then
@@ -73,6 +84,9 @@ cat > "$INSTALL_DIR/uninstall.sh" <<EOF
 #!/bin/bash
 echo "Entferne Spiel: $GAME_ID"
 rm -rf "\$(dirname "\$0")/prefix"
+rm -rf "\$(dirname "\$0")/start.sh"
+rm -rf "\$(dirname "\$0")/uninstall.sh"
+
 EOF
 chmod +x "$INSTALL_DIR/uninstall.sh"
 

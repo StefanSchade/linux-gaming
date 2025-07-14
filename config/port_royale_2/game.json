@@ -1,6 +1,7 @@
 {
   "engine": "WINEBOOT",
   "exe_path": "GOG Games/Port Royale 2",
-  "exe_file": "PR2.exe"
+  "exe_file": "PR2.exe",
+  "wine_version": "win7"
 }
 
