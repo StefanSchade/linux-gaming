@@ -72,14 +72,12 @@ for INSTALLER in "${INSTALLERS[@]}"; do
   wine "$INSTALLER" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-
 done
 
-# Savegame-Verzeichnis vorbereiten und My Documents remappen
-SAVE_DIR="$SAVEGAME_PATH/$GAME_ID"
-USER_DIR="$WINEPREFIX/drive_c/users/$(whoami)"
-DOCS_DIR="$USER_DIR/Documents"
 
-mkdir -p "$SAVE_DIR"
-rm -rf "$DOCS_DIR"
-ln -s "$SAVE_DIR" "$DOCS_DIR"
+# Symlink-Bereinigung und Registry-Tweak für 'My Documents'
+# DOCS_DIR="$WINEPREFIX/drive_c/users/$(whoami)/Documents"
+# SAVE_DIR_WIN="C:\\games\\_savegame\\$GAME_ID"
+# SAVE_DIR_NATIVE="$SAVEGAME_PATH/$GAME_ID"
+# DOCS_TARGET="$WINEPREFIX/drive_c/games/_savegame/$GAME_ID"
 
 # start.sh erzeugen
 cat > "$INSTALL_DIR/start.sh" <<EOF
@@ -96,8 +94,8 @@ chmod +x "$INSTALL_DIR/start.sh"
 cat > "$INSTALL_DIR/uninstall.sh" <<EOF
 #!/bin/bash
 echo "Entferne Spiel: $GAME_ID"
-rm -rf "\$(dirname "\$0")/prefix"
-rm -f "\$(dirname "\$0")/*.sh"
+rm -rf $INSTALL_DIR/prefix
+rm $INSTALL_DIR/*.sh
 EOF
 chmod +x "$INSTALL_DIR/uninstall.sh"
 
