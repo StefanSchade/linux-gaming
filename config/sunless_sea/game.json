@@ -6,5 +6,6 @@
   ],
   "exe_path": "GOG Games/Sunless Sea",
   "exe_file": "Sunless Sea.exe",
-  "wine_version": "win10"
+  "wine_version": "win10",
+  "savegame_path": "~/games/sunless_sea/prefix/drive_c/users/stefan/AppData/LocalLow/Failbetter Games/Sunless Sea/saves"
 }

@@ -40,7 +40,7 @@ SAVEGAME_PATH=$(jq -r '.savegame_path' "$GAME_CONFIG")
 SAVEGAME_PATH="${SAVEGAME_PATH%/}"
 
   # ... Slot-Tools generieren
-  for TEMPLATE in rotate_save_to_slot rotate_slot_to_save list_slots delete_slot; do
+  for TEMPLATE in export_save_to_slot import_slot_to_save list_slots delete_slot; do
     TEMPLATE_PATH="$(dirname "$0")/templates/${TEMPLATE}.template.sh"
     TARGET_PATH="$GAME_DIR/${TEMPLATE}.sh"
 
