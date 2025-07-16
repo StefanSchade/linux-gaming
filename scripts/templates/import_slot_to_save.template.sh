@@ -15,6 +15,8 @@ if [[ ! -d "$SRC" ]]; then
   exit 1
 fi
 
+rm -r "$DEST/"
+mkdir "$DEST/"
 cp -r "$SRC/"* "$DEST/"
 echo "Slot '$SLOT' wurde ins Spielverzeichnis wiederhergestellt."
 

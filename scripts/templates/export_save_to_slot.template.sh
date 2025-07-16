@@ -7,7 +7,7 @@ if [[ -z "$SLOT" ]]; then
   exit 1
 fi
 
-SRC="__SAVEGAME_PATH__/__GAME_ID__"
+SRC="__SAVEGAME_PATH__"
 DEST="__SAVESLOT_PATH__/__GAME_ID__/$SLOT"
 
 mkdir -p "$DEST"
