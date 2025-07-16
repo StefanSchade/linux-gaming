@@ -36,11 +36,21 @@ mkdir -p "$GAME_DIR"
 # Wenn die Engine abhaengige Installation erfolgreich ist...
 if "$ENGINE_SCRIPT" "$GAME_ID"; then
 
+# Aus Config holen
 SAVEGAME_PATH=$(jq -r '.savegame_path' "$GAME_CONFIG")
+
+# Slash am Ende bereinigen
 SAVEGAME_PATH="${SAVEGAME_PATH%/}"
 
-  # ... Slot-Tools generieren
-  for TEMPLATE in export_save_to_slot import_slot_to_save list_slots delete_slot; do
+# whoami Referenz aufloesen
+USERNAME=$(whoami)
+SAVEGAME_PATH=$(echo "$SAVEGAME_PATH" | sed "s|\$(whoami)|$USERNAME|g")
+
+# kompletten Pfad zusammenbauen
+SAVEGAME_PATH="$INSTALL_PATH/$GAME_ID/$SAVEGAME_PATH"
+
+# ... Slot-Tools generieren
+for TEMPLATE in export_save_to_slot import_slot_to_save list_slots delete_slot; do
     TEMPLATE_PATH="$(dirname "$0")/templates/${TEMPLATE}.template.sh"
     TARGET_PATH="$GAME_DIR/${TEMPLATE}.sh"
 

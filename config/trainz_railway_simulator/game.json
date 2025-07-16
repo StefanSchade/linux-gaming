@@ -6,5 +6,5 @@
   "exe_path": "Program Files (x86)/BlueSky Interactive/PTP",
   "exe_file": "PTP.exe",
   "wine_version": "win7",
-  "savegame_path": "/home/stefan/games/no_surrender_battle_of_the_bulge/prefix/drive_c/Program Files (x86)/BlueSky Interactive/PTP/Cache/sessions"
+  "savegame_path": "prefix/drive_c/Program Files (x86)/BlueSky Interactive/PTP/Cache/sessions"
 }

@@ -4,6 +4,6 @@
   "exe_file": "ArdennesSplash.exe",
   "installers": ["Setup.exe"],
   "wine_version": "winxp",
-  "savegame_path": "/home/stefan/games/no_surrender_battle_of_the_bulge/prefix/drive_c/Program Files (x86)/Monte Cristo/1944 Winterschlacht in den Ardennen/Save"
+  "savegame_path": "prefix/drive_c/Program Files (x86)/Monte Cristo/1944 Winterschlacht in den Ardennen/Save"
 }
 

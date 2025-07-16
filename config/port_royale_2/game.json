@@ -3,6 +3,6 @@
   "exe_path": "GOG Games/Port Royale 2",
   "exe_file": "PR2.exe",
   "wine_version": "win7",
-  "savegame_path": "/home/stefan/Documents/Ascaron Entertainment/"
+  "savegame_path": "prefix/drive_c/users/$(whoami)/My Documents/Ascaron Entertainment/"
 }
 
