@@ -1,5 +1,6 @@
 {
   "engine": "WINEBOOT",
+  "installer_args": ["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-"],
   "exe_path": "GOG Games/18 Wheels of Steel Across America/",
   "exe_file": "AcrossAmerica.exe",
   "wine_version": "win7",

@@ -67,9 +67,20 @@ else
 fi
 
 # Installer ausführen
+readarray -t INSTALLER_ARGS < <(jq -r '.installer_args[]?' "$GAME_CONFIG")
+
+# Platzhalter ersetzen
+for i in "${!INSTALLER_ARGS[@]}"; do
+  arg="${INSTALLER_ARGS[$i]}"
+  arg="${arg//\$(DOWNLOAD_DIR)/$DOWNLOAD_DIR}"
+  arg="${arg//\$(INSTALL_DIR)/$INSTALL_DIR}"
+  arg="${arg//\$(CONFIG_DIR)/$CONFIG_DIR}"
+  INSTALLER_ARGS[$i]="$arg"
+done
+
 for INSTALLER in "${INSTALLERS[@]}"; do
   echo "→ Installiere: $INSTALLER"
-  wine "$INSTALLER" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-
+  wine "$INSTALLER" "${INSTALLER_ARGS[@]}"
 done
 
 

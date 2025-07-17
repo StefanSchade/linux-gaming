@@ -3,6 +3,7 @@
   "installers": [
     "PTP2006/Install/setup.exe"
   ],
+  "installer_args": ["-s", "-f1$(DOWNLOAD_DIR)/setup.iss"],
   "exe_path": "Program Files (x86)/BlueSky Interactive/PTP",
   "exe_file": "PTP.exe",
   "wine_version": "win7",
