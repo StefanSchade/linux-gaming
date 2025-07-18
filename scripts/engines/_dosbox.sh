@@ -207,7 +207,7 @@ EOF
 # ---------------------------------------------
 cat > "$INSTALL_DIR/start.sh" <<EOF
 #!/bin/bash
-dosbox "$CONF_TARGET" -exit -fullscreen
+dosbox -conf "$CONF_TARGET"
 EOF
 chmod +x "$INSTALL_DIR/start.sh"
 

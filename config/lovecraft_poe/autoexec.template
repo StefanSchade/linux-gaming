@@ -1,6 +1,6 @@
 @echo off
 mount c $(INSTALL_DIR)/app/
-mount d $(INSTALL_DIR)/CD -t cdrom
+mount d $(INSTALL_DIR)/app/CD -t cdrom
 c:
 d:
 ice640.exe
