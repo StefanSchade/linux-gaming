@@ -46,14 +46,12 @@ load_conf_value() {
 # Werte laden (mit Fallback) exe nur wenn kein autoexec.template
 # ---------------------------------------------
 
-if [[ -f "$CONFIG_DIR/autoexec.template" ]]; then
-  echo "autoexec.template gefunden"
-else
+if [[ ! -f "$CONFIG_DIR/autoexec.template" ]]; then
   EXE_FILE=$(jq -r '.exe_file' "$GAME_CONFIG")
-  [[ "$EXE_FILE" == "null" || -z "$EXE_FILE" ]] && {
-    echo -e "${RED}Fehler: exe_file fehlt in $GAME_CONFIG${NC}"
+  if [[ -z "$EXE_FILE" || "$EXE_FILE" == "null" ]]; then
+    echo -e "${RED}Fehler: exe_file fehlt in $GAME_CONFIG und kein autoexec.template vorhanden${NC}"
     exit 1
-  }
+  fi
 fi
 
 FULLSCREEN=$(load_conf_value "fullscreen" "true")
@@ -67,31 +65,38 @@ ASPECT=$(load_conf_value "aspect" "true")
 RATE=$(load_conf_value "rate" "44100")
 
 # ---------------------------------------------
-# Ist im game.json ein installer hinterlegt?
+# Installer erkennen und verarbeiten
 # ---------------------------------------------
 INSTALLER=$(jq -r '.installer // empty' "$GAME_CONFIG")
+
 if [[ -n "$INSTALLER" ]]; then
   INSTALLER="$DOWNLOAD_DIR/$INSTALLER"
+  echo "Nutze konfigurierten Installer: $INSTALLER"
+  if innoextract --silent --list "$INSTALLER" >/dev/null 2>&1; then
+    echo -e "${GREEN}GOG-Installer erkannt – entpacke mit innoextract...${NC}"
+    innoextract -s -d "$INSTALL_DIR" "$INSTALLER"
+  else
+    echo -e "${RED}Fehler: Installer '$INSTALLER' ist kein unterstützter GOG/InnoSetup-Installer.${NC}"
+    echo -e "${RED}Abbruch. Bitte prüfe game.json oder erweitere das Script für andere Formate.${NC}"
+    exit 1
+  fi
 else
-  # Kein Installer konfiguriert, wir suchen
-  INSTALLER=$(find "$DOWNLOAD_DIR" -iname "*.exe" | head -n1)
-  if [[ -n "$INSTALLER" && ! -d "$INSTALL_DIR/app" ]]; then
-    echo "Prüfe, ob $INSTALLER ein GOG-Installer ist..."
-    if innoextract --silent --list "$INSTALLER" >/dev/null 2>&1; then
+  # Kein Installer konfiguriert – heuristische Erkennung
+  CANDIDATE=$(find "$DOWNLOAD_DIR" -iname "*.exe" | head -n1)
+  if [[ -n "$CANDIDATE" ]]; then
+    echo "Gefundene .exe: $CANDIDATE"
+    if innoextract --silent --list "$CANDIDATE" >/dev/null 2>&1; then
       echo -e "${GREEN}GOG-Installer erkannt – entpacke mit innoextract...${NC}"
-      innoextract -s -d "$INSTALL_DIR" "$INSTALLER"
+      innoextract -s -d "$INSTALL_DIR" "$CANDIDATE"
     else
-      echo -e "${GREEN}Kein Installer – kopiere Inhalte ins Installationsverzeichnis${NC}"
-      cp "$DOWNLOAD_DIR/"* "$INSTALL_DIR/"
+      echo -e "${GREEN}Keine Archivstruktur erkannt – gehe von entpacktem Spiel aus${NC}"
+      cp -r "$DOWNLOAD_DIR/"* "$INSTALL_DIR/"
     fi
+  else
+    echo -e "${GREEN}Kein Installer gefunden – kopiere Inhalte direkt${NC}"
+    cp -r "$DOWNLOAD_DIR/"* "$INSTALL_DIR/"
   fi
 fi
-
-# ---------------------------------------------
-# Spieldateien kopieren
-# ---------------------------------------------
-echo -e "${GREEN}Kopiere Spieldateien nach $INSTALL_DIR ...${NC}"
-cp -r "$DOWNLOAD_DIR/"* "$INSTALL_DIR/"
 
 # ---------------------------------------------
 # Autoexec bestimmen
