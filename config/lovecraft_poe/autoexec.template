@@ -1,0 +1,8 @@
+@echo off
+mount c /home/stefan/gog/dosbox/lovecraft_poe/app/
+mount d /home/stefan/gog/dosbox/lovecraft_poe/app/CD -t cdrom
+c:
+d:
+ice640.exe
+exit
+
