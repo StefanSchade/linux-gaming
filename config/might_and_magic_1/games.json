@@ -1,0 +1,11 @@
+{
+  "engine": "DOSBOX",
+  "exe_file": "mm.exe",
+  "fullscreen": false,
+  "windowresolution": "original",
+  "scaler": "normal2x",
+  "memsize": 8,
+  "cycles": "fixed 250",
+  "ems": false
+}
+

@@ -1,3 +1,12 @@
 {
+  "fullscreen": true,
+  "fullresolution": "desktop",
+  "windowresolution": "1400x980",
+  "output": "opengl",
+  "scaler": "normal3x",
+  "memsize": 16,
+  "cycles": "auto",
+  "aspect": true,
+  "rate": 44100
 }
 
