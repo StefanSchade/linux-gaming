@@ -41,14 +41,20 @@ load_conf_value() {
   echo "$default"
 }
 
+
 # ---------------------------------------------
-# Werte laden (mit Fallback)
+# Werte laden (mit Fallback) exe nur wenn kein autoexec.template
 # ---------------------------------------------
-EXE_FILE=$(jq -r '.exe_file' "$GAME_CONFIG")
-[[ "$EXE_FILE" == "null" || -z "$EXE_FILE" ]] && {
-  echo -e "${RED}Fehler: exe_file fehlt in $GAME_CONFIG${NC}"
-  exit 1
-}
+
+if [[ -f "$CONFIG_DIR/autoexec.template" ]]; then
+  echo "autoexec.template gefunden"
+else
+  EXE_FILE=$(jq -r '.exe_file' "$GAME_CONFIG")
+  [[ "$EXE_FILE" == "null" || -z "$EXE_FILE" ]] && {
+    echo -e "${RED}Fehler: exe_file fehlt in $GAME_CONFIG${NC}"
+    exit 1
+  }
+fi
 
 FULLSCREEN=$(load_conf_value "fullscreen" "true")
 FULLRES=$(load_conf_value "fullresolution" "desktop")
@@ -59,6 +65,27 @@ MEMSIZE=$(load_conf_value "memsize" "16")
 CYCLES=$(load_conf_value "cycles" "auto")
 ASPECT=$(load_conf_value "aspect" "true")
 RATE=$(load_conf_value "rate" "44100")
+
+# ---------------------------------------------
+# Ist im game.json ein installer hinterlegt?
+# ---------------------------------------------
+INSTALLER=$(jq -r '.installer // empty' "$GAME_CONFIG")
+if [[ -n "$INSTALLER" ]]; then
+  INSTALLER="$DOWNLOAD_DIR/$INSTALLER"
+else
+  # Kein Installer konfiguriert, wir suchen
+  INSTALLER=$(find "$DOWNLOAD_DIR" -iname "*.exe" | head -n1)
+  if [[ -n "$INSTALLER" && ! -d "$INSTALL_DIR/app" ]]; then
+    echo "Prüfe, ob $INSTALLER ein GOG-Installer ist..."
+    if innoextract --silent --list "$INSTALLER" >/dev/null 2>&1; then
+      echo -e "${GREEN}GOG-Installer erkannt – entpacke mit innoextract...${NC}"
+      innoextract -s -d "$INSTALL_DIR" "$INSTALLER"
+    else
+      echo -e "${GREEN}Kein Installer – kopiere Inhalte ins Installationsverzeichnis${NC}"
+      cp "$DOWNLOAD_DIR/"* "$INSTALL_DIR/"
+    fi
+  fi
+fi
 
 # ---------------------------------------------
 # Spieldateien kopieren
@@ -72,6 +99,11 @@ cp -r "$DOWNLOAD_DIR/"* "$INSTALL_DIR/"
 if [[ -f "$CONFIG_DIR/autoexec.template" ]]; then
   echo "Verwende benutzerdefinierten autoexec.template"
   AUTOEXEC_BLOCK=$(< "$CONFIG_DIR/autoexec.template")
+  # ersetzen
+  AUTOEXEC_BLOCK="${AUTOEXEC_BLOCK//\$(DOWNLOAD_DIR)/$DOWNLOAD_DIR}"
+  AUTOEXEC_BLOCK="${AUTOEXEC_BLOCK//\$(INSTALL_DIR)/$INSTALL_DIR}"
+  AUTOEXEC_BLOCK="${AUTOEXEC_BLOCK//\$(CONFIG_DIR)/$CONFIG_DIR}"
+  AUTOEXEC_BLOCK="${AUTOEXEC_BLOCK//\$(GAME_ID)/$GAME_ID}"
 else
   echo "Erzeuge generischen autoexec-Block"
   AUTOEXEC_BLOCK=$(cat <<EOF
