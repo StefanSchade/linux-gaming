@@ -54,7 +54,7 @@ if [[ ! -f "$CONFIG_DIR/autoexec.template" ]]; then
   fi
 fi
 
-FULLSCREEN=$(load_conf_value "fullscreen" "true")
+FULLSCREEN=$(load_conf_value "fullscreen" "false")
 FULLRES=$(load_conf_value "fullresolution" "desktop")
 WINDOWRES=$(load_conf_value "windowresolution" "1400x980")
 OUTPUT=$(load_conf_value "output" "opengl")

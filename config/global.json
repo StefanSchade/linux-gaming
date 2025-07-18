@@ -1,5 +1,5 @@
 {
-  "fullscreen": false,
+  "fullscreen": "false",
   "fullresolution": "desktop",
   "fulldouble":"false",
   "windowresolution": "1280x960",
