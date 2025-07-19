@@ -63,6 +63,7 @@ MEMSIZE=$(load_conf_value "memsize" "16")
 CYCLES=$(load_conf_value "cycles" "auto")
 ASPECT=$(load_conf_value "aspect" "true")
 RATE=$(load_conf_value "rate" "44100")
+SPEAKER=$(load_conf_value "pcspeaker" "false")
 
 # ---------------------------------------------
 # Installer erkennen und verarbeiten
@@ -72,20 +73,29 @@ INSTALLER=$(jq -r '.installer // empty' "$GAME_CONFIG")
 if [[ -n "$INSTALLER" ]]; then
   INSTALLER="$DOWNLOAD_DIR/$INSTALLER"
   echo "Nutze konfigurierten Installer: $INSTALLER"
-  if innoextract --silent --list "$INSTALLER" >/dev/null 2>&1; then
+
+  if [[ "$INSTALLER" == *.zip ]]; then
+    echo -e "${GREEN}ZIP-Archiv erkannt – entpacke mit unzip...${NC}"
+    unzip -q -o "$INSTALLER" -d "$INSTALL_DIR"
+  elif innoextract --silent --list "$INSTALLER" >/dev/null 2>&1; then
     echo -e "${GREEN}GOG-Installer erkannt – entpacke mit innoextract...${NC}"
     innoextract -s -d "$INSTALL_DIR" "$INSTALLER"
   else
-    echo -e "${RED}Fehler: Installer '$INSTALLER' ist kein unterstützter GOG/InnoSetup-Installer.${NC}"
-    echo -e "${RED}Abbruch. Bitte prüfe game.json oder erweitere das Script für andere Formate.${NC}"
+    echo -e "${RED}Fehler: Installer '$INSTALLER' ist kein unterstützter Installer.${NC}"
+    echo -e "${RED}Bitte prüfe game.json oder erweitere das Script für andere Formate.${NC}"
     exit 1
   fi
+
 else
   # Kein Installer konfiguriert – heuristische Erkennung
-  CANDIDATE=$(find "$DOWNLOAD_DIR" -iname "*.exe" | head -n1)
+  CANDIDATE=$(find "$DOWNLOAD_DIR" -type f \( -iname "*.zip" -o -iname "*.exe" \) | head -n1)
   if [[ -n "$CANDIDATE" ]]; then
-    echo "Gefundene .exe: $CANDIDATE"
-    if innoextract --silent --list "$CANDIDATE" >/dev/null 2>&1; then
+    echo "Gefundener Installer: $CANDIDATE"
+
+    if [[ "$CANDIDATE" == *.zip ]]; then
+      echo -e "${GREEN}ZIP-Archiv erkannt – entpacke mit unzip...${NC}"
+      unzip -q -o "$CANDIDATE" -d "$INSTALL_DIR"
+    elif innoextract --silent --list "$CANDIDATE" >/dev/null 2>&1; then
       echo -e "${GREEN}GOG-Installer erkannt – entpacke mit innoextract...${NC}"
       innoextract -s -d "$INSTALL_DIR" "$CANDIDATE"
     else
@@ -96,6 +106,21 @@ else
     echo -e "${GREEN}Kein Installer gefunden – kopiere Inhalte direkt${NC}"
     cp -r "$DOWNLOAD_DIR/"* "$INSTALL_DIR/"
   fi
+fi
+
+# ---------------------------------------------
+# Postinstall Copy
+# ---------------------------------------------
+
+COPIES=$(jq -c '.copy_files[]?' "$GAME_CONFIG")
+if [[ -n "$COPIES" ]]; then
+  echo "→ Führe Copy-Anweisungen aus:"
+  while IFS= read -r entry; do
+    FROM=$(echo "$entry" | jq -r '.from')
+    TO=$(echo "$entry" | jq -r '.to')
+    echo "   - Kopiere $FROM → $TO"
+    cp "$INSTALL_DIR/$FROM" "$INSTALL_DIR/$TO"
+  done <<< "$COPIES"
 fi
 
 # ---------------------------------------------
@@ -175,7 +200,7 @@ oplrate=$RATE
 gus=false
 
 [speaker]
-pcspeaker=false
+pcspeaker=$SPEAKER
 pcrate=$RATE
 tandy=off
 tandyrate=$RATE
