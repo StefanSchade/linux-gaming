@@ -1,0 +1,5 @@
+@echo off
+mount c $(INSTALL_DIR)/
+C:
+cd MANHUN~2
+SIERRA.COM
