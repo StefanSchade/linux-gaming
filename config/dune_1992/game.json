@@ -1,5 +1,7 @@
 {
   "engine": "DOSBOX",
-  "exe_file": "dune"
+  "installer": "Dune_DOS_EN_ISO-Version.zip",
+  "installer_type": "iso_runtime",
+  "exe_file": "DUNE.EXE"
 }
 

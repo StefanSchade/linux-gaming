@@ -68,45 +68,120 @@ SPEAKER=$(load_conf_value "pcspeaker" "false")
 # ---------------------------------------------
 # Installer erkennen und verarbeiten
 # ---------------------------------------------
+
 INSTALLER=$(jq -r '.installer // empty' "$GAME_CONFIG")
+INSTALLER_TYPE=$(jq -r '.installer_type // "auto"' "$GAME_CONFIG")
+
+echo "→ Prüfe Installer-Konfiguration:"
 
 if [[ -n "$INSTALLER" ]]; then
+  echo "  → Konfigurierter Installer: $INSTALLER"
   INSTALLER="$DOWNLOAD_DIR/$INSTALLER"
-  echo "Nutze konfigurierten Installer: $INSTALLER"
-
-  if [[ "$INSTALLER" == *.zip ]]; then
-    echo -e "${GREEN}ZIP-Archiv erkannt – entpacke mit unzip...${NC}"
-    unzip -q -o "$INSTALLER" -d "$INSTALL_DIR"
-  elif innoextract --silent --list "$INSTALLER" >/dev/null 2>&1; then
-    echo -e "${GREEN}GOG-Installer erkannt – entpacke mit innoextract...${NC}"
-    innoextract -s -d "$INSTALL_DIR" "$INSTALLER"
+else
+  echo "  → Kein Installer konfiguriert, starte heuristische Suche..."
+  INSTALLER=$(find "$DOWNLOAD_DIR" -type f \( -iname "*.zip" -o -iname "*.exe" \) | head -n1)
+  if [[ -n "$INSTALLER" ]]; then
+    echo "  → Gefundener Installer: $INSTALLER"
   else
-    echo -e "${RED}Fehler: Installer '$INSTALLER' ist kein unterstützter Installer.${NC}"
-    echo -e "${RED}Bitte prüfe game.json oder erweitere das Script für andere Formate.${NC}"
+    echo -e "${RED}Fehler: Kein Installer gefunden im Download-Verzeichnis${NC}"
     exit 1
   fi
+fi
 
-else
-  # Kein Installer konfiguriert – heuristische Erkennung
-  CANDIDATE=$(find "$DOWNLOAD_DIR" -type f \( -iname "*.zip" -o -iname "*.exe" \) | head -n1)
-  if [[ -n "$CANDIDATE" ]]; then
-    echo "Gefundener Installer: $CANDIDATE"
+# ---------------------------------------------
+# Installer-Typ bestimmen (sofern nicht gesetzt)
+# ---------------------------------------------
 
-    if [[ "$CANDIDATE" == *.zip ]]; then
-      echo -e "${GREEN}ZIP-Archiv erkannt – entpacke mit unzip...${NC}"
-      unzip -q -o "$CANDIDATE" -d "$INSTALL_DIR"
-    elif innoextract --silent --list "$CANDIDATE" >/dev/null 2>&1; then
-      echo -e "${GREEN}GOG-Installer erkannt – entpacke mit innoextract...${NC}"
-      innoextract -s -d "$INSTALL_DIR" "$CANDIDATE"
+if [[ "$INSTALLER_TYPE" == "auto" || -z "$INSTALLER_TYPE" ]]; then
+  echo "→ Kein installer_type gesetzt – heuristische Bestimmung..."
+
+  if [[ "$INSTALLER" == *.zip ]]; then
+    if unzip -l "$INSTALLER" | grep -i '\.iso' >/dev/null; then
+      INSTALLER_TYPE="iso_install"
+      echo "  → Enthält ISO: Typ = iso_install"
     else
-      echo -e "${GREEN}Keine Archivstruktur erkannt – gehe von entpacktem Spiel aus${NC}"
-      cp -r "$DOWNLOAD_DIR/"* "$INSTALL_DIR/"
+      INSTALLER_TYPE="zip_plain"
+      echo "  → Normales ZIP: Typ = zip_plain"
+    fi
+  elif [[ "$INSTALLER" == *.exe ]]; then
+    if innoextract --silent --list "$INSTALLER" >/dev/null 2>&1; then
+      INSTALLER_TYPE="gog"
+      echo "  → GOG-Installer erkannt"
+    else
+      INSTALLER_TYPE="exe"
+      echo "  → Normale EXE-Datei"
     fi
   else
-    echo -e "${GREEN}Kein Installer gefunden – kopiere Inhalte direkt${NC}"
-    cp -r "$DOWNLOAD_DIR/"* "$INSTALL_DIR/"
+    echo -e "${RED}Fehler: Unbekannter Installer-Typ für Datei: $INSTALLER${NC}"
+    exit 1
   fi
+else
+  echo "→ Installer-Typ aus game.json: $INSTALLER_TYPE"
 fi
+
+# ---------------------------------------------
+# Verarbeitung des Installers je nach Typ
+# ---------------------------------------------
+
+case "$INSTALLER_TYPE" in
+
+  iso_install)
+    echo -e "${GREEN}ZIP mit ISO (Install-Quelle) – entpacke...${NC}"
+    unzip -q -o "$INSTALLER" -d "$INSTALL_DIR"
+    ISO_FILE=$(find "$INSTALL_DIR" -iname "*.iso" | head -n1)
+    if [[ -z "$ISO_FILE" ]]; then
+      echo -e "${RED}Fehler: Keine ISO-Datei im ZIP gefunden.${NC}"
+      exit 1
+    fi
+    MOUNT_ISO="$ISO_FILE"
+    INSTALL_MODE="iso_install"
+    ;;
+
+  iso_install_and_run)
+    echo -e "${GREEN}ISO enthält Spiel und Setup – entpacke und mount vorbereiten...${NC}"
+    unzip -q -o "$INSTALLER" -d "$INSTALL_DIR"
+    ISO_FILE=$(find "$INSTALL_DIR" -iname "*.iso" | head -n1)
+    if [[ -z "$ISO_FILE" ]]; then
+      echo -e "${RED}Fehler: Keine ISO-Datei im ZIP gefunden.${NC}"
+      exit 1
+    fi
+    MOUNT_ISO="$ISO_FILE"
+    INSTALL_MODE="iso_install_and_run"
+    ;;
+
+  iso_runtime)
+    echo -e "${GREEN}ISO wird zur Laufzeit benötigt – entpacke und mount vorbereiten...${NC}"
+    unzip -q -o "$INSTALLER" -d "$INSTALL_DIR"
+    ISO_FILE=$(find "$INSTALL_DIR" -iname "*.iso" | head -n1)
+    if [[ -z "$ISO_FILE" ]]; then
+      echo -e "${RED}Fehler: Keine ISO-Datei im ZIP gefunden.${NC}"
+      exit 1
+    fi
+    MOUNT_ISO="$ISO_FILE"
+    INSTALL_MODE="iso_runtime"
+    ;;
+
+  gog)
+    echo -e "${GREEN}GOG-Installer erkannt – entpacke mit innoextract...${NC}"
+    innoextract -s -d "$INSTALL_DIR" "$INSTALLER"
+    ;;
+
+  zip_plain)
+    echo -e "${GREEN}Normales ZIP – entpacke mit unzip...${NC}"
+    unzip -q -o "$INSTALLER" -d "$INSTALL_DIR"
+    ;;
+
+  exe)
+    echo -e "${GREEN}EXE-Datei erkannt – kopiere in Install-Verzeichnis...${NC}"
+    cp "$INSTALLER" "$INSTALL_DIR/"
+    ;;
+
+  *)
+    echo -e "${RED}Fehler: Unbekannter installer_type: $INSTALLER_TYPE${NC}"
+    exit 1
+    ;;
+esac
+
 
 # ---------------------------------------------
 # Postinstall Copy
@@ -129,14 +204,56 @@ fi
 if [[ -f "$CONFIG_DIR/autoexec.template" ]]; then
   echo "Verwende benutzerdefinierten autoexec.template"
   AUTOEXEC_BLOCK=$(< "$CONFIG_DIR/autoexec.template")
-  # ersetzen
+
+  # Ersetze Platzhalter
   AUTOEXEC_BLOCK="${AUTOEXEC_BLOCK//\$(DOWNLOAD_DIR)/$DOWNLOAD_DIR}"
   AUTOEXEC_BLOCK="${AUTOEXEC_BLOCK//\$(INSTALL_DIR)/$INSTALL_DIR}"
   AUTOEXEC_BLOCK="${AUTOEXEC_BLOCK//\$(CONFIG_DIR)/$CONFIG_DIR}"
   AUTOEXEC_BLOCK="${AUTOEXEC_BLOCK//\$(GAME_ID)/$GAME_ID}"
+
 else
-  echo "Erzeuge generischen autoexec-Block"
-  AUTOEXEC_BLOCK=$(cat <<EOF
+  echo "Kein benutzerdefiniertes Template – verwende Standard für $INSTALL_MODE"
+
+  case "$INSTALL_MODE" in
+
+    iso_runtime)
+      AUTOEXEC_BLOCK=$(cat <<EOF
+@echo off
+imgmount d "$MOUNT_ISO" -t iso -fs iso
+mount c $INSTALL_DIR
+d:
+$EXE_FILE
+exit
+EOF
+)
+      ;;
+
+    iso_install)
+      AUTOEXEC_BLOCK=$(cat <<EOF
+@echo off
+imgmount d "$MOUNT_ISO" -t iso -fs iso
+mount c $INSTALL_DIR
+d:
+INSTALL.EXE
+exit
+EOF
+)
+      ;;
+
+    iso_install_and_run)
+      AUTOEXEC_BLOCK=$(cat <<EOF
+@echo off
+imgmount d "$MOUNT_ISO" -t iso -fs iso
+mount c $INSTALL_DIR
+c:
+$EXE_FILE
+exit
+EOF
+)
+      ;;
+
+    zip_plain | exe | gog | *)
+      AUTOEXEC_BLOCK=$(cat <<EOF
 @echo off
 mount c $INSTALL_DIR
 c:
@@ -144,6 +261,9 @@ $EXE_FILE
 exit
 EOF
 )
+      ;;
+
+  esac
 fi
 
 # ---------------------------------------------
