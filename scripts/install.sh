@@ -33,6 +33,16 @@ fi
 GAME_DIR="$INSTALL_PATH/$GAME_ID"
 mkdir -p "$GAME_DIR"
 
+echo "${RED}$GAME_DIR${NC}"
+
+if [[ -n "$(ls -A "$GAME_DIR")" ]]; then
+  echo -e "${RED}Fehler: Zielverzeichnis '$GAME_DIR' ist nicht leer.${NC}"
+  echo -e "${RED}Breche Installation ab. Bitte 'uninstall.sh' ausführen und erneut versuchen.${NC}"
+  echo -e "$GAME_DIR/uninstall.sh"
+  exit 1
+fi
+
+
 # Wenn die Engine abhaengige Installation erfolgreich ist...
 if "$ENGINE_SCRIPT" "$GAME_ID"; then
 
@@ -66,7 +76,6 @@ for TEMPLATE in export_save_to_slot import_slot_to_save list_slots delete_slot; 
       "$TEMPLATE_PATH" > "$TARGET_PATH"
 
     chmod +x "$TARGET_PATH"
-    echo "Generiert: $TARGET_PATH"
   done
 
 else
