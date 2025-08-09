@@ -42,27 +42,47 @@ if [[ -n "$(ls -A "$GAME_DIR")" ]]; then
   exit 1
 fi
 
-
-# Wenn die Engine abhaengige Installation erfolgreich ist...
+# Wenn die Engine abhängige Installation erfolgreich ist...
 if "$ENGINE_SCRIPT" "$GAME_ID"; then
+  INSTALL_DIR="$INSTALL_PATH/$GAME_ID"
+  BASELINE_FILE="$INSTALL_DIR/.install_baseline.lst"
 
-# Aus Config holen
-SAVEGAME_PATH=$(jq -r '.savegame_path' "$GAME_CONFIG")
+  # --- Baseline schreiben: alle Dateien direkt nach Installation (relativ zum INSTALL_DIR)
+  ( cd "$INSTALL_DIR" && find . -type f -printf '%P\n' | LC_ALL=C sort ) > "$BASELINE_FILE"
 
-# Slash am Ende bereinigen
-SAVEGAME_PATH="${SAVEGAME_PATH%/}"
+  # --- Whitelist-Patterns bestimmen (Array-Unterstützung + Backwards-Compat)
+  # Prefer `.savegame_paths` (array). If missing, derive array from single `savegame_path` (dir).
+  mapfile -t SAVEGAME_PATHS < <(jq -r '.savegame_paths[]? // empty' "$GAME_CONFIG")
+  SINGLE_SAVE_PATH=$(jq -r '.savegame_path // empty' "$GAME_CONFIG")
 
-# whoami Referenz aufloesen
-USERNAME=$(whoami)
-SAVEGAME_PATH=$(echo "$SAVEGAME_PATH" | sed "s|\$(whoami)|$USERNAME|g")
+  SAVE_PATTERNS_ARRAY_LIT="()"
+  if [[ ${#SAVEGAME_PATHS[@]} -gt 0 ]]; then
+    # Use patterns as-is (user may include wildcards and/or trailing / for directories)
+    tmp=()
+    for p in "${SAVEGAME_PATHS[@]}"; do
+      # trim trailing slash normalization happens in scripts; we keep literal here
+      tmp+=("'$p'")
+    done
+    SAVE_PATTERNS_ARRAY_LIT="(${tmp[*]})"
+  elif [[ -n "$SINGLE_SAVE_PATH" && "$SINGLE_SAVE_PATH" != "null" ]]; then
+    # Backward compat: previous semantics were "copy that directory". Implement as:
+    # - wipe contents of that dir on import
+    # - export/import that dir recursively.
+    # We inject two patterns:
+    #   1) "<dir>/"       (signals 'directory semantics' for cleanup)
+    #   2) "<dir>/**"     (ensures recursive match for export)
+    CLEAN="${SINGLE_SAVE_PATH%/}/"
+    RECUR="${SINGLE_SAVE_PATH%/}/**"
+    SAVE_PATTERNS_ARRAY_LIT="('$CLEAN' '$RECUR')"
+  else
+    # No whitelist: scripts will fall back to baseline-diff logic.
+    SAVE_PATTERNS_ARRAY_LIT="()"
+  fi
 
-# kompletten Pfad zusammenbauen
-SAVEGAME_PATH="$INSTALL_PATH/$GAME_ID/$SAVEGAME_PATH"
-
-# ... Slot-Tools generieren
-for TEMPLATE in export_save_to_slot import_slot_to_save list_slots delete_slot; do
-    TEMPLATE_PATH="$(dirname "$0")/templates/${TEMPLATE}.template.sh"
-    TARGET_PATH="$GAME_DIR/${TEMPLATE}.sh"
+  # ... Slot-Tools generieren
+  for TEMPLATE_BASENAME in export_save_to_slot import_slot_to_save list_slots delete_slot; do
+    TEMPLATE_PATH="$(dirname "$0")/templates/${TEMPLATE_BASENAME}.template.sh"
+    TARGET_PATH="$INSTALL_DIR/${TEMPLATE_BASENAME}.sh"
 
     if [[ ! -f "$TEMPLATE_PATH" ]]; then
       echo -e "${RED}Template fehlt: $TEMPLATE_PATH${NC}"
@@ -70,9 +90,12 @@ for TEMPLATE in export_save_to_slot import_slot_to_save list_slots delete_slot; 
     fi
 
     sed \
-      -e "s|__SAVEGAME_PATH__|$SAVEGAME_PATH|g" \
+      -e "s|__SAVEGAME_PATH__|$INSTALL_DIR/${SINGLE_SAVE_PATH%/}|g" \
       -e "s|__SAVESLOT_PATH__|$SAVESLOT_PATH|g" \
       -e "s|__GAME_ID__|$GAME_ID|g" \
+      -e "s|__INSTALL_DIR__|$INSTALL_DIR|g" \
+      -e "s|__BASELINE_FILE__|$BASELINE_FILE|g" \
+      -e "s|__SAVE_PATTERNS_ARRAY__|$SAVE_PATTERNS_ARRAY_LIT|g" \
       "$TEMPLATE_PATH" > "$TARGET_PATH"
 
     chmod +x "$TARGET_PATH"
@@ -82,3 +105,4 @@ else
   echo -e "${RED}Engine-Installation fehlgeschlagen, Slot-Tools nicht erzeugt.${NC}"
   exit 1
 fi
+
