@@ -4,6 +4,8 @@
   "exe_path": "GOG Games/18 Wheels of Steel American Long Haul/",
   "exe_file": "alh.exe",
   "wine_version": "win7",
-  "savegame_path": "prefix/drive_c/users/$(whoami)/My Documents/18 WoS American Long Haul"
+  "savegame_paths": [
+	  "prefix/drive_c/users/$(whoami)/My Documents/18 WoS American Long Haul/"
+  ]
 }
 
