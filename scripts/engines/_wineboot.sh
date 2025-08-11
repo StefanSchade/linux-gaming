@@ -106,6 +106,7 @@ cat > "$INSTALL_DIR/uninstall.sh" <<EOF
 #!/bin/bash
 echo "Entferne Spiel: $GAME_ID"
 rm -rf $INSTALL_DIR/prefix
+rm $INSTALL_DIR/.install_baseline.lst
 rm $INSTALL_DIR/*.sh
 EOF
 chmod +x "$INSTALL_DIR/uninstall.sh"

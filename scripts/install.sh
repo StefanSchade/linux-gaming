@@ -53,6 +53,8 @@ if "$ENGINE_SCRIPT" "$GAME_ID"; then
   # --- Whitelist-Patterns bestimmen (Array-Unterstützung + Backwards-Compat)
   # Prefer `.savegame_paths` (array). If missing, derive array from single `savegame_path` (dir).
   mapfile -t SAVEGAME_PATHS < <(jq -r '.savegame_paths[]? // empty' "$GAME_CONFIG")
+  USERNAME=$(whoami)
+
   SINGLE_SAVE_PATH=$(jq -r '.savegame_path // empty' "$GAME_CONFIG")
 
   SAVE_PATTERNS_ARRAY_LIT="()"
@@ -60,6 +62,9 @@ if "$ENGINE_SCRIPT" "$GAME_ID"; then
     # Use patterns as-is (user may include wildcards and/or trailing / for directories)
     tmp=()
     for p in "${SAVEGAME_PATHS[@]}"; do
+      # expand $(whoami) in user-provided patterns so scripts see real paths
+      p="${p//\$(whoami)/$USERNAME}"
+
       # trim trailing slash normalization happens in scripts; we keep literal here
       tmp+=("'$p'")
     done

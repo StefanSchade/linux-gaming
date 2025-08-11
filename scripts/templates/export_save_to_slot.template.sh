@@ -29,14 +29,14 @@ if [[ ${#SAVE_PATTERNS[@]} -gt 0 ]]; then
       if [[ "$pat" == */ ]]; then
         dir="${pat%/}"
         [[ -d "$dir" ]] || continue
-        rsync -aR "./$dir/" "$DEST/"
+        rsync -aRL "./$dir/" "$DEST/"
       else
         # File/wildcard pattern
         # Expand safely; if nothing matches, skip
         matches=( ./$pat )
         # If the literal string stayed unexpanded, check existence
         if [[ "${matches[*]}" != "./$pat" || -e "./$pat" || -L "./$pat" ]]; then
-          rsync -aR "${matches[@]}" "$DEST/" 2>/dev/null || true
+          rsync -aRL "${matches[@]}" "$DEST/" 2>/dev/null || true
         fi
       fi
     done
