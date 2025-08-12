@@ -1,0 +1,10 @@
+@echo off
+mount c "$(INSTALL_DIR)"
+c:
+if not exist DUNECD md DUNECD
+set TEMP=C:\DUNECD
+set TMP=C:\DUNECD
+imgmount d "$(INSTALL_DIR)/Dune.iso" -t iso -fs iso
+d:
+DUNE.EXE
+exit
