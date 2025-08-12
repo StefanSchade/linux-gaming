@@ -14,6 +14,8 @@ set -euo pipefail
 #
 # Usage: ./export_save_to_slot.sh <slotname>
 
+export LC_ALL=C
+
 SLOT="${1:-}"
 if [[ -z "$SLOT" ]]; then
   echo "Usage: $0 <slotname>" >&2
@@ -59,16 +61,14 @@ if [[ ${#SAVE_PATTERNS[@]} -gt 0 ]]; then
 fi
 
 # ------------------------------
-# FALLBACK: BASELINE DIFF MODE
+# FALLBACK: BASELINE DIFF MODE (NUL-safe)
 # ------------------------------
-# Robust against unsorted/locale issues and nested directories.
-CUR_LIST="$(mktemp)"
-BASE_LIST_Z="$(mktemp)"
-DELTA_LIST="$(mktemp)"
 
-cleanup() {
-  rm -f "$CUR_LIST" "$BASE_LIST_Z" "$DELTA_LIST"
-}
+# Temp files (reuse your names if already defined)
+CUR_LIST="$(mktemp)"
+BASELINE_SORTED="$(mktemp)"
+DELTA_LIST="$(mktemp)"
+cleanup() { rm -f "$CUR_LIST" "$BASELINE_SORTED" "$DELTA_LIST"; }
 trap cleanup EXIT
 
 if [[ ! -f "$BASELINE" ]]; then
@@ -76,19 +76,21 @@ if [[ ! -f "$BASELINE" ]]; then
   exit 1
 fi
 
-# 1) Current files (recursive, relative to GAME_ROOT), NUL-delimited & sorted.
-LC_ALL=C find "$GAME_ROOT" -type f -printf '%P\0' | LC_ALL=C sort -z -o "$CUR_LIST"
+# Build current list (relative, recursive, NUL-delimited, sorted)
+find "$GAME_ROOT" -type f -printf '%P\0' | sort -z -o "$CUR_LIST"
 
-# 2) Normalize baseline (newline -> NUL) and sort to match CUR_LIST collation.
-awk 'BEGIN{RS="\n"; ORS="\0"} {print}' "$BASELINE" | LC_ALL=C sort -z -o "$BASE_LIST_Z"
+# Make a sorted, NUL-delimited copy of the baseline (without touching the file on disk)
+awk 'BEGIN{RS="\n"; ORS="\0"} {print}' "$BASELINE" | sort -z -o "$BASELINE_SORTED"
 
-# 3) Delta: only entries present in current but not in baseline.
-comm -z -13 "$BASE_LIST_Z" "$CUR_LIST" > "$DELTA_LIST"
+# Delta: only entries present in current but not in baseline
+comm -z -13 "$BASELINE_SORTED" "$CUR_LIST" > "$DELTA_LIST"
 
-# 4) Copy just the delta, preserving directory structure.
+# Copy delta preserving paths (and report)
 if [[ -s "$DELTA_LIST" ]]; then
   rsync -a --from0 --files-from="$DELTA_LIST" "$GAME_ROOT/" "$DEST/"
-  echo "Exported $(tr -cd '\0' < "$DELTA_LIST" | wc -c) new/changed files to slot '$SLOT' at: $DEST"
+  # count NUL-separated entries for info
+  cnt=$(tr -cd '\0' < "$DELTA_LIST" | wc -c)
+  echo "Exported ${cnt} new/changed files to slot '$SLOT' at: $DEST"
 else
   echo "Keine neuen Dateien seit Installation – nichts zu exportieren."
 fi

@@ -47,9 +47,6 @@ if "$ENGINE_SCRIPT" "$GAME_ID"; then
   INSTALL_DIR="$INSTALL_PATH/$GAME_ID"
   BASELINE_FILE="$INSTALL_DIR/.install_baseline.lst"
 
-  # --- Baseline schreiben: alle Dateien direkt nach Installation (relativ zum INSTALL_DIR)
-  LC_ALL=C find "$INSTALL_DIR" -type f -printf '%P\n' | LC_ALL=C sort > "$INSTALL_DIR/.install_baseline.lst"
-
   # --- Whitelist-Patterns bestimmen (Array-Unterstützung + Backwards-Compat)
   # Prefer `.savegame_paths` (array). If missing, derive array from single `savegame_path` (dir).
   
@@ -66,37 +63,37 @@ if "$ENGINE_SCRIPT" "$GAME_ID"; then
     # keep only non-empty strings and not the literal "null"
     | map(select(type=="string" and . != "" and . != "null"))
   | .[]
-' "$GAME_CONFIG")
-
-# Legacy single path: empty if missing/null
-SINGLE_SAVE_PATH="$(jq -r '
-  ( .savegame_path // empty )
-  | select(. != null and . != "null" and . != "")
-' "$GAME_CONFIG")"
-
-# --- Build the templated bash array literal used by scripts
-SAVE_PATTERNS_ARRAY_LIT="()"
-if [[ ${#SAVEGAME_PATHS[@]} -gt 0 ]]; then
-  # Use patterns as-is (relative to game root; wildcards & trailing / allowed)
-  tmp=()
-  for p in "${SAVEGAME_PATHS[@]}"; do
-    # expand $(whoami) in user-provided patterns so scripts see real paths
-    p="${p//\$(whoami)/$USERNAME}"
-    tmp+=("'$p'")
-  done
-  SAVE_PATTERNS_ARRAY_LIT="(${tmp[*]})"
-
-elif [[ -n "$SINGLE_SAVE_PATH" ]]; then
-  # Backward compat: treat as directory semantics + recursive content
-  CLEAN="${SINGLE_SAVE_PATH%/}/"
-  RECUR="${SINGLE_SAVE_PATH%/}/**"
-  SAVE_PATTERNS_ARRAY_LIT="('$CLEAN' '$RECUR')"
-
-else
-  # No whitelist: scripts will fall back to baseline-diff logic.
+  ' "$GAME_CONFIG")
+    
+  # Legacy single path: empty if missing/null
+  SINGLE_SAVE_PATH="$(jq -r '
+    ( .savegame_path // empty )
+    | select(. != null and . != "null" and . != "")
+  ' "$GAME_CONFIG")"
+  
+  # --- Build the templated bash array literal used by scripts
   SAVE_PATTERNS_ARRAY_LIT="()"
-fi
-
+  if [[ ${#SAVEGAME_PATHS[@]} -gt 0 ]]; then
+    # Use patterns as-is (relative to game root; wildcards & trailing / allowed)
+    tmp=()
+    for p in "${SAVEGAME_PATHS[@]}"; do
+      # expand $(whoami) in user-provided patterns so scripts see real paths
+      p="${p//\$(whoami)/$USERNAME}"
+      tmp+=("'$p'")
+    done
+    SAVE_PATTERNS_ARRAY_LIT="(${tmp[*]})"
+  
+  elif [[ -n "$SINGLE_SAVE_PATH" ]]; then
+    # Backward compat: treat as directory semantics + recursive content
+    CLEAN="${SINGLE_SAVE_PATH%/}/"
+    RECUR="${SINGLE_SAVE_PATH%/}/**"
+    SAVE_PATTERNS_ARRAY_LIT="('$CLEAN' '$RECUR')"
+  
+  else
+    # No whitelist: scripts will fall back to baseline-diff logic.
+    SAVE_PATTERNS_ARRAY_LIT="()"
+  fi
+  
    # ... Slot-Tools generieren
   for TEMPLATE_BASENAME in export_save_to_slot import_slot_to_save list_slots delete_slot; do
     TEMPLATE_PATH="$(dirname "$0")/templates/${TEMPLATE_BASENAME}.template.sh"
@@ -119,6 +116,9 @@ fi
 
     chmod +x "$TARGET_PATH"
   done
+
+  # --- Baseline schreiben: alle Dateien direkt nach Installation (relativ zum INSTALL_DIR)
+  LC_ALL=C find "$INSTALL_DIR" -type f -printf '%P\n' | LC_ALL=C sort > "$INSTALL_DIR/.install_baseline.lst"
 
 else
   echo -e "${RED}Engine-Installation fehlgeschlagen, Slot-Tools nicht erzeugt.${NC}"

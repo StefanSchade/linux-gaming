@@ -15,6 +15,8 @@ set -euo pipefail
 #
 # Usage: ./import_slot_to_save.sh <slotname>
 
+export LC_ALL=C
+
 SLOT="${1:-}"
 if [[ -z "$SLOT" ]]; then
   echo "Usage: $0 <slotname>" >&2
@@ -80,13 +82,13 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# Build current file list: recursive, relative, NUL-delimited, sorted
-LC_ALL=C find "$GAME_ROOT" -type f -printf '%P\0' | LC_ALL=C sort -z -o "$CUR_LIST"
+# Build current list (relative, recursive, NUL-delimited, sorted)
+find "$GAME_ROOT" -type f -printf '%P\0' | sort -z -o "$CUR_LIST"
 
-# Normalize baseline (newline -> NUL) and sort to match current collation
-awk 'BEGIN{RS="\n"; ORS="\0"} {print}' "$BASELINE" | LC_ALL=C sort -z -o "$BASE_LIST_Z"
+# Normalize baseline to NUL-delimited & sorted
+awk 'BEGIN{RS="\n"; ORS="\0"} {print}' "$BASELINE" | sort -z -o "$BASE_LIST_Z"
 
-# Files only in current (i.e., not in baseline) → must be removed
+# Files only in current (not in baseline) → must be removed
 comm -z -13 "$BASE_LIST_Z" "$CUR_LIST" > "$DEL_LIST"
 
 # Delete those files relative to GAME_ROOT, NUL-safe
