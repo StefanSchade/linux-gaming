@@ -1,65 +1,108 @@
 #!/bin/bash
 set -euo pipefail
 
+# Restore save data from a named slot into the game directory.
+# Behavior:
+#   - If SAVE_PATTERNS present: delete matches in GAME_ROOT, then copy slot.
+#   - Else (fallback): delete everything NOT in baseline, then copy slot.
+#
+# Templated by install.sh:
+#   __INSTALL_DIR__          -> absolute game root
+#   __SAVESLOT_PATH__        -> absolute base path for all game slots
+#   __GAME_ID__              -> game identifier
+#   __BASELINE_FILE__        -> path to .install_baseline.lst (newline list, recursive)
+#   __SAVE_PATTERNS_ARRAY__  -> bash array literal of patterns relative to game root
+#
+# Usage: ./import_slot_to_save.sh <slotname>
+
 SLOT="${1:-}"
 if [[ -z "$SLOT" ]]; then
-  echo "Usage: $0 <slotname>"
+  echo "Usage: $0 <slotname>" >&2
   exit 1
 fi
 
-SRC="__SAVESLOT_PATH__/__GAME_ID__/$SLOT"
 GAME_ROOT="__INSTALL_DIR__"
+SRC="__SAVESLOT_PATH__/__GAME_ID__/$SLOT"
 BASELINE="__BASELINE_FILE__"
-
-if [[ ! -d "$SRC" ]]; then
-  echo "Slot nicht gefunden: $SRC"
-  exit 1
-fi
 
 declare -a SAVE_PATTERNS=__SAVE_PATTERNS_ARRAY__
 
+if [[ ! -d "$SRC" ]]; then
+  echo "Slot not found: $SRC" >&2
+  exit 1
+fi
+
+# Make globs predictable for whitelist handling.
 shopt -s globstar nullglob dotglob
 
-# 1) Cleanup phase (produce 'clean slate' per spec)
+# -------------------------------------------------------------------
+# Mode A: WHITELIST — purge matches then restore from slot
+# -------------------------------------------------------------------
 if [[ ${#SAVE_PATTERNS[@]} -gt 0 ]]; then
   (
     cd "$GAME_ROOT"
+
     for pat in "${SAVE_PATTERNS[@]}"; do
       if [[ "$pat" == */ ]]; then
+        # Directory marker: remove the entire directory (if present)
         dir="${pat%/}"
-        [[ -d "$dir" ]] || continue
-        # Remove directory contents but keep the directory itself
-        rm -rf -- "$dir/"* "$dir/".* 2>/dev/null || true
+        [[ -e "$dir" ]] || continue
+        rm -rf -- "$dir"
       else
-        matches=( ./$pat )
-        if [[ "${matches[*]}" != "./$pat" || -e "./$pat" || -L "./$pat" ]]; then
-          rm -rf -- "${matches[@]}" 2>/dev/null || true
-        fi
+        # File / wildcard pattern: expand and delete matches
+        matches=( $pat )
+        (( ${#matches[@]} )) || continue
+        rm -f -- "${matches[@]}"
       fi
     done
   )
-else
-  # No whitelist → remove everything not in baseline
-  if [[ ! -f "$BASELINE" ]]; then
-    echo "Baseline fehlt: $BASELINE"
-    exit 1
-  fi
-  (
-    cd "$GAME_ROOT"
-    TMP_CUR="$(mktemp)"
-    trap 'rm -f "$TMP_CUR"' EXIT
-    find . -type f -printf '%P\n' | LC_ALL=C sort > "$TMP_CUR"
-    # files present now but not in baseline
-    while IFS= read -r rel; do
-      rm -f -- "$rel" 2>/dev/null || true
-    done < <(comm -13 "$BASELINE" "$TMP_CUR")
-    # Optional: prune empty dirs that were created post-install (best-effort)
-    find . -type d -empty -mindepth 1 -delete 2>/dev/null || true
-  )
+
+  # Restore slot into cleaned areas
+  rsync -a "$SRC/" "$GAME_ROOT/"
+  echo "Imported slot '$SLOT' (whitelist mode) into: $GAME_ROOT"
+  exit 0
 fi
 
-# 2) Restore phase (preserve structure)
+# -------------------------------------------------------------------
+# Mode B: FALLBACK — baseline diff clean, then restore from slot
+# -------------------------------------------------------------------
+if [[ ! -f "$BASELINE" ]]; then
+  echo "Baseline fehlt: $BASELINE" >&2
+  exit 1
+fi
+
+CUR_LIST="$(mktemp)"
+BASE_LIST_Z="$(mktemp)"
+DEL_LIST="$(mktemp)"
+
+cleanup() {
+  rm -f "$CUR_LIST" "$BASE_LIST_Z" "$DEL_LIST"
+}
+trap cleanup EXIT
+
+# Build current file list: recursive, relative, NUL-delimited, sorted
+LC_ALL=C find "$GAME_ROOT" -type f -printf '%P\0' | LC_ALL=C sort -z -o "$CUR_LIST"
+
+# Normalize baseline (newline -> NUL) and sort to match current collation
+awk 'BEGIN{RS="\n"; ORS="\0"} {print}' "$BASELINE" | LC_ALL=C sort -z -o "$BASE_LIST_Z"
+
+# Files only in current (i.e., not in baseline) → must be removed
+comm -z -13 "$BASE_LIST_Z" "$CUR_LIST" > "$DEL_LIST"
+
+# Delete those files relative to GAME_ROOT, NUL-safe
+(
+  cd "$GAME_ROOT"
+  if [[ -s "$DEL_LIST" ]]; then
+    xargs -0 -r rm -f -- < "$DEL_LIST"
+  fi
+  # Optionally prune now-empty directories (but never remove the root)
+  find . -mindepth 1 -type d -empty -delete
+)
+
+# Restore slot content
 rsync -a "$SRC/" "$GAME_ROOT/"
 
-echo "Slot '$SLOT' wurde ins Spielverzeichnis wiederhergestellt."
+# Done
+count=$(tr -cd '\0' < "$DEL_LIST" | wc -c)
+echo "Imported slot '$SLOT' (baseline mode) into: $GAME_ROOT (removed $count non-baseline files before restore)"
 
