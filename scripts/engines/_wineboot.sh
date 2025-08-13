@@ -13,10 +13,10 @@ if [[ -z "$GAME_ID" ]]; then
   exit 1
 fi
 
-INSTALL_DIR="$INSTALL_PATH/$GAME_ID"
-DOWNLOAD_DIR="$DOWNLOAD_PATH/$GAME_ID"
-CONFIG_DIR="$CONFIG_PATH/$GAME_ID"
-GAME_CONFIG="$CONFIG_DIR/game.json"
+# INSTALL_DIR="$INSTALL_PATH/$GAME_ID/install/"
+DOWNLOAD_DIR="${DOWNLOAD_PATH%/}/$GAME_ID/"
+CONFIG_DIR="${CONFIG_PATH%/}/$GAME_ID/"
+GAME_CONFIG="${CONFIG_DIR%/}/game.json"
 
 if [[ ! -f "$GAME_CONFIG" ]]; then
   echo -e "${RED}Fehler: $GAME_CONFIG fehlt${NC}"
@@ -36,10 +36,10 @@ if [[ -d "$INSTALL_DIR" && -n "$(ls -A "$INSTALL_DIR" 2>/dev/null)" ]]; then
   exit 1
 fi
 
-mkdir -p "$INSTALL_DIR/prefix"
+mkdir -p "${INSTALL_DIR%/}/prefix"
 echo -e "${GREEN}Installation wird gestartet...${NC}"
 cd "$INSTALL_DIR"
-export WINEPREFIX="$INSTALL_DIR/prefix"
+export WINEPREFIX="${INSTALL_DIR%/}/prefix"
 
 # Initialisiere Prefix
 wineboot -u
