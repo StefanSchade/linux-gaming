@@ -2,7 +2,7 @@
 set -e
 
 SCRIPT_DIR="$(dirname "$0")"
-source "$SCRIPT_DIR/../_config.sh"
+source "${SCRIPT_DIR%/}/../_config.sh"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -14,11 +14,12 @@ if [[ -z "$GAME_ID" ]]; then
   exit 1
 fi
 
-INSTALL_DIR="$INSTALL_PATH/$GAME_ID"
-DOWNLOAD_DIR="$DOWNLOAD_PATH/$GAME_ID"
-CONFIG_DIR="$CONFIG_PATH/$GAME_ID"
-GLOBAL_CONFIG="$CONFIG_PATH/global.json"
-GAME_CONFIG="$CONFIG_DIR/game.json"
+INSTALL_DIR="${INSTALL_PATH%/}/$GAME_ID/install"
+GAME_DIR="${INSTALL_PATH%/}/$GAME_ID/"
+DOWNLOAD_DIR="${DOWNLOAD_PATH%/}/$GAME_ID/"
+CONFIG_DIR="${CONFIG_PATH%/}/$GAME_ID/"
+GLOBAL_CONFIG="${CONFIG_PATH%/}/global.json"
+GAME_CONFIG="${CONFIG_DIR%/}/game.json"
 
 if [[ ! -f "$GAME_CONFIG" ]]; then
   echo -e "${RED}Fehler: $GAME_CONFIG fehlt${NC}"
@@ -46,7 +47,7 @@ load_conf_value() {
 # Werte laden (mit Fallback) exe nur wenn kein autoexec.template
 # ---------------------------------------------
 
-if [[ ! -f "$CONFIG_DIR/autoexec.template" ]]; then
+if [[ ! -f "${CONFIG_DIR%/}/autoexec.template" ]]; then
   EXE_FILE=$(jq -r '.exe_file' "$GAME_CONFIG")
   if [[ -z "$EXE_FILE" || "$EXE_FILE" == "null" ]]; then
     echo -e "${RED}Fehler: exe_file fehlt in $GAME_CONFIG und kein autoexec.template vorhanden${NC}"
@@ -76,7 +77,7 @@ echo "→ Prüfe Installer-Konfiguration:"
 
 if [[ -n "$INSTALLER" ]]; then
   echo "  → Konfigurierter Installer: $INSTALLER"
-  INSTALLER="$DOWNLOAD_DIR/$INSTALLER"
+  INSTALLER="${DOWNLOAD_DIR%/}/$INSTALLER"
 else
   echo "  → Kein Installer konfiguriert, starte heuristische Suche..."
   INSTALLER=$(find "$DOWNLOAD_DIR" -type f \( -iname "*.zip" -o -iname "*.exe" \) | head -n1)
@@ -194,21 +195,21 @@ if [[ -n "$COPIES" ]]; then
     FROM=$(echo "$entry" | jq -r '.from')
     TO=$(echo "$entry" | jq -r '.to')
     echo "   - Kopiere $FROM → $TO"
-    cp "$INSTALL_DIR/$FROM" "$INSTALL_DIR/$TO"
+    cp "${INSTALL_DIR%/}/$FROM" "${INSTALL_DIR%/}/$TO"
   done <<< "$COPIES"
 fi
 
 # ---------------------------------------------
 # Autoexec bestimmen
 # ---------------------------------------------
-if [[ -f "$CONFIG_DIR/autoexec.template" ]]; then
+if [[ -f "${CONFIG_DIR%/}/autoexec.template" ]]; then
   echo "Verwende benutzerdefinierten autoexec.template"
-  AUTOEXEC_BLOCK=$(< "$CONFIG_DIR/autoexec.template")
+  AUTOEXEC_BLOCK=$(< "${CONFIG_DIR%/}/autoexec.template")
 
   # Ersetze Platzhalter
-  AUTOEXEC_BLOCK="${AUTOEXEC_BLOCK//\$(DOWNLOAD_DIR)/$DOWNLOAD_DIR}"
-  AUTOEXEC_BLOCK="${AUTOEXEC_BLOCK//\$(INSTALL_DIR)/$INSTALL_DIR}"
-  AUTOEXEC_BLOCK="${AUTOEXEC_BLOCK//\$(CONFIG_DIR)/$CONFIG_DIR}"
+  AUTOEXEC_BLOCK="${AUTOEXEC_BLOCK//\$(DOWNLOAD_DIR)/${DOWNLOAD_DIR%/}}"
+  AUTOEXEC_BLOCK="${AUTOEXEC_BLOCK//\$(INSTALL_DIR)/${INSTALL_DIR%/}}"
+  AUTOEXEC_BLOCK="${AUTOEXEC_BLOCK//\$(CONFIG_DIR)/${CONFIG_DIR%/}}"
   AUTOEXEC_BLOCK="${AUTOEXEC_BLOCK//\$(GAME_ID)/$GAME_ID}"
 
 else
@@ -220,7 +221,7 @@ else
       AUTOEXEC_BLOCK=$(cat <<EOF
 @echo off
 imgmount d "$MOUNT_ISO" -t iso -fs iso
-mount c $INSTALL_DIR
+mount c ${INSTALL_DIR%/}
 d:
 $EXE_FILE
 exit
@@ -232,7 +233,7 @@ EOF
       AUTOEXEC_BLOCK=$(cat <<EOF
 @echo off
 imgmount d "$MOUNT_ISO" -t iso -fs iso
-mount c $INSTALL_DIR
+mount c ${INSTALL_DIR%/}
 d:
 INSTALL.EXE
 exit
@@ -244,7 +245,7 @@ EOF
       AUTOEXEC_BLOCK=$(cat <<EOF
 @echo off
 imgmount d "$MOUNT_ISO" -t iso -fs iso
-mount c $INSTALL_DIR
+mount c ${INSTALL_DIR%/}
 c:
 $EXE_FILE
 exit
@@ -255,7 +256,7 @@ EOF
     zip_plain | exe | gog | *)
       AUTOEXEC_BLOCK=$(cat <<EOF
 @echo off
-mount c $INSTALL_DIR
+mount c ${INSTALL_DIR%/}
 c:
 $EXE_FILE
 exit
@@ -269,7 +270,7 @@ fi
 # ---------------------------------------------
 # dosbox.conf schreiben
 # ---------------------------------------------
-CONF_TARGET="$INSTALL_DIR/${GAME_ID}.conf"
+CONF_TARGET="${INSTALL_DIR%/}/${GAME_ID}.conf"
 cat > "$CONF_TARGET" <<EOF
 [sdl]
 fullscreen=$FULLSCREEN
@@ -350,22 +351,22 @@ EOF
 # ---------------------------------------------
 # Start- und Uninstall-Skripte erzeugen
 # ---------------------------------------------
-cat > "$INSTALL_DIR/start.sh" <<EOF
+cat > "${GAME_DIR%/}/start.sh" <<EOF
 #!/bin/bash
 dosbox -conf "$CONF_TARGET"
 EOF
-chmod +x "$INSTALL_DIR/start.sh"
+chmod +x "${GAME_DIR%/}/start.sh"
 
-cat > "$INSTALL_DIR/uninstall.sh" <<EOF
+cat > "${GAME_DIR%/}/uninstall.sh" <<EOF
 #!/bin/bash
 echo "Entferne Spiel: $GAME_ID"
-rm -rf "$INSTALL_DIR"
+rm -rf "$GAME_DIR"
 EOF
-chmod +x "$INSTALL_DIR/uninstall.sh"
+chmod +x "${GAME_DIR%/}/uninstall.sh"
 
 # ---------------------------------------------
 # Abschlussmeldung
 # ---------------------------------------------
 echo -e "${GREEN}Installation abgeschlossen. Starte das Spiel mit:${NC}"
-echo "$INSTALL_DIR/start.sh"
+echo "${GAME_DIR%/}/start.sh"
 

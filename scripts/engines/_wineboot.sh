@@ -13,7 +13,7 @@ if [[ -z "$GAME_ID" ]]; then
   exit 1
 fi
 
-# INSTALL_DIR="$INSTALL_PATH/$GAME_ID/install/"
+INSTALL_DIR="$INSTALL_PATH/$GAME_ID/install/"
 DOWNLOAD_DIR="${DOWNLOAD_PATH%/}/$GAME_ID/"
 CONFIG_DIR="${CONFIG_PATH%/}/$GAME_ID/"
 GAME_CONFIG="${CONFIG_DIR%/}/game.json"
@@ -36,8 +36,8 @@ if [[ -d "$INSTALL_DIR" && -n "$(ls -A "$INSTALL_DIR" 2>/dev/null)" ]]; then
   exit 1
 fi
 
+echo -e "${GREEN}Installation wird gestartet. location: ${INSTALL_DIR%/}/prefix${NC}"
 mkdir -p "${INSTALL_DIR%/}/prefix"
-echo -e "${GREEN}Installation wird gestartet...${NC}"
 cd "$INSTALL_DIR"
 export WINEPREFIX="${INSTALL_DIR%/}/prefix"
 
@@ -112,5 +112,5 @@ EOF
 chmod +x "$INSTALL_DIR/uninstall.sh"
 
 echo -e "${GREEN}Installation abgeschlossen. Starte das Spiel mit:${NC}"
-echo "$INSTALL_DIR/start.sh"
+echo "${INSTALL_DIR%/}/start.sh"
 

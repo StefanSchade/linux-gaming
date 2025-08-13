@@ -54,6 +54,7 @@ fi
 
 # prepare installation path
 INSTALL_DIR="${INSTALL_PATH%/}/$GAME_ID/install/"
+GAME_DIR="${INSTALL_PATH%/}/$GAME_ID/"
 mkdir -p "$INSTALL_DIR"
 echo "${RED}$INSTALL_DIR${NC}"
 
@@ -66,7 +67,7 @@ fi
 
 # Wenn die Engine abhängige Installation erfolgreich ist...
 if "$ENGINE_SCRIPT" "$GAME_ID"; then
-  BASELINE_FILE="${INSTALL_DIR%/}/.install_baseline.lst"
+  BASELINE_FILE="${GAME_DIR%/}/.install_baseline.lst"
 
   # --- Whitelist-Patterns bestimmen (Array-Unterstützung + Backwards-Compat)
   # Prefer `.savegame_paths` (array). If missing, derive array from single `savegame_path` (dir).
@@ -118,7 +119,7 @@ if "$ENGINE_SCRIPT" "$GAME_ID"; then
    # ... Slot-Tools generieren
   for TEMPLATE_BASENAME in export_save_to_slot import_slot_to_save list_slots delete_slot; do
     TEMPLATE_PATH="$(dirname "$0")/templates/${TEMPLATE_BASENAME}.template.sh"
-    TARGET_PATH="${INSTALL_DIR%/}/${TEMPLATE_BASENAME}.sh"
+    TARGET_PATH="${GAME_DIR%/}/${TEMPLATE_BASENAME}.sh"
 
     if [[ ! -f "$TEMPLATE_PATH" ]]; then
       echo -e "${RED}Template fehlt: $TEMPLATE_PATH${NC}"
@@ -152,7 +153,6 @@ if "$ENGINE_SCRIPT" "$GAME_ID"; then
       fi
     done
   fi
-      
   
   # --- Baseline schreiben: alle Dateien direkt nach Installation (relativ zum INSTALL_DIR)
   LC_ALL=C find "$INSTALL_DIR" -type f -printf '%P\n' | LC_ALL=C sort > "$BASELINE_FILE"
