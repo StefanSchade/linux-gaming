@@ -144,7 +144,16 @@ if "$ENGINE_SCRIPT" "$GAME_ID"; then
     for p in "${SAVE_PATTERNS_SAN[@]}"; do
       create_dir_from_pattern "$p"
     done
+  elif [[ "${ENGINE,,}" == "wineboot" ]]; then
+    for p in "${SAVE_PATTERNS_SAN[@]}"; do
+      # nur relative/spielordner-nahe Patterns vorab anlegen
+      # (keine Windows-Absolutpfade, keine %VARS%, keine Backslashes mit Laufwerksbuchstaben)
+      if [[ "$p" != *:\\* && "$p" != %*% && "$p" != /* ]]; then
+        create_dir_from_pattern "$p"
+      fi
+    done
   fi
+      
   
   # --- Baseline schreiben: alle Dateien direkt nach Installation (relativ zum INSTALL_DIR)
   LC_ALL=C find "$INSTALL_DIR" -type f -printf '%P\n' | LC_ALL=C sort > "$BASELINE_FILE"
