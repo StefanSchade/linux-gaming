@@ -10,22 +10,50 @@ NC='\033[0m'
 # pre create savegame directories after install to increase stability 
 create_dir_from_pattern() {
   local pat="$1"
+  [[ -z "$pat" ]] && return 0
 
-  # Case 1: explicit directory marker "foo/"; ignore any glob chars just in case
-  if [[ "$pat" == */ && "$pat" != *'*'* && "$pat" != *'?'* && "$pat" != *'['* ]]; then
-    mkdir -p -- "$INSTALL_DIR/${pat%/}"
-    return
+  # Flags
+  local is_dir_marker=0 has_glob=0
+  [[ "$pat" == */ && "$pat" != *'*'* && "$pat" != *'?'* && "$pat" != *'['* ]] && is_dir_marker=1
+  [[ "$pat" == *'*'* || "$pat" == *'?'* || "$pat" == *'['* ]] && has_glob=1
+
+  # Zielverzeichnis, das ggf. angelegt werden soll (relativ zu INSTALL_DIR)
+  local dir=""
+
+  if (( is_dir_marker )); then
+    # "SAVE/" -> SAVE
+    dir="${pat%/}"
+
+  elif (( has_glob )); then
+    # "SAVE/*.SAV", "SAVE/**", "SAVE/slot_*" -> Elternordner "SAVE" anlegen
+    dir="${pat%/*}"
+    [[ "$dir" == "$pat" ]] && dir=""
+
+  else
+    # Plain path ohne Globs -> als DATEI interpretieren
+    # Nur falls ein Unterordner enthalten ist, dessen Elternordner anlegen.
+    if [[ "$pat" == */* ]]; then
+      dir="${pat%/*}"
+    else
+      dir=""   # "ROSTER.DTA" -> nichts anlegen
+    fi
   fi
 
-  # Case 2: pattern like "foo/*.SAV" or "foo/**" or "foo/bar*"
-  # Create the static parent prefix up to the first glob metachar
-  local static="${pat%%[\*\?\[]*}"
-  static="${static%/}"
-  [[ -z "$static" ]] && return
-  [[ "$static" == /* ]] && return
-  [[ "$static" == *".."* ]] && return
+  # Nichts zu tun?
+  [[ -z "$dir" ]] && return 0
 
-  mkdir -p -- "$INSTALL_DIR/$static"
+  # Sicherheitsgurt
+  [[ "$dir" == /* ]] && return 0
+  [[ "$dir" == *".."* ]] && return 0
+
+  local target="${INSTALL_DIR%/}/$dir"
+
+  # Wenn an der Stelle bereits eine Datei existiert (kein Ordner), nichts tun.
+  if [[ -e "$target" && ! -d "$target" ]]; then
+    return 0
+  fi
+
+  mkdir -p -- "$target"
 }
 
 GAME_ID="$1"
