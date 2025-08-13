@@ -1,11 +1,32 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 source "$(dirname "$0")/_config.sh"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m'
+
+# pre create savegame directories after install to increase stability 
+create_dir_from_pattern() {
+  local pat="$1"
+
+  # Case 1: explicit directory marker "foo/"; ignore any glob chars just in case
+  if [[ "$pat" == */ && "$pat" != *'*'* && "$pat" != *'?'* && "$pat" != *'['* ]]; then
+    mkdir -p -- "$INSTALL_DIR/${pat%/}"
+    return
+  fi
+
+  # Case 2: pattern like "foo/*.SAV" or "foo/**" or "foo/bar*"
+  # Create the static parent prefix up to the first glob metachar
+  local static="${pat%%[\*\?\[]*}"
+  static="${static%/}"
+  [[ -z "$static" ]] && return
+  [[ "$static" == /* ]] && return
+  [[ "$static" == *".."* ]] && return
+
+  mkdir -p -- "$INSTALL_DIR/$static"
+}
 
 GAME_ID="$1"
 if [[ -z "$GAME_ID" ]]; then
@@ -15,24 +36,25 @@ fi
 
 GAME_CONFIG="$CONFIG_PATH/$GAME_ID/game.json"
 if [[ ! -f "$GAME_CONFIG" ]]; then
-  echo -e "${RED}Konfigurationsdatei nicht gefunden: $GAME_CONFIG${NC}"
+  echo -e "${RED}Game configuration not found: $GAME_CONFIG${NC}"
   exit 1
 fi
+
+command -v jq >/dev/null || { echo -e "${RED}jq nicht gefunden.${NC}"; exit 1; }
 
 ENGINE=$(jq -r '.engine' "$GAME_CONFIG")
 ENGINE_SCRIPT="$(dirname "$0")/engines/_${ENGINE,,}.sh"
 
 if [[ ! -f "$ENGINE_SCRIPT" ]]; then
-  echo -e "${RED}Engine '$ENGINE' nicht unterstützt oder Script fehlt: $ENGINE_SCRIPT${NC}"
-  echo -e "${RED}Tipp: Unterstützte Engines sind:${NC}"
+  echo -e "${RED}Engine '$ENGINE' not supported or missing script: $ENGINE_SCRIPT${NC}"
+  echo -e "${RED}List of supported engines:${NC}"
   ls "$(dirname "$0")/engines/" | grep '^_' | sed 's/^_//;s/\.sh$//' | sort
   exit 1
 fi
 
-# Spielverzeichnis vorbereiten
+# prepare installation path
 INSTALL_DIR="$INSTALL_PATH/$GAME_ID"
 mkdir -p "$INSTALL_DIR"
-
 echo "${RED}$INSTALL_DIR${NC}"
 
 if [[ -n "$(ls -A "$INSTALL_DIR")" ]]; then
@@ -49,50 +71,50 @@ if "$ENGINE_SCRIPT" "$GAME_ID"; then
 
   # --- Whitelist-Patterns bestimmen (Array-Unterstützung + Backwards-Compat)
   # Prefer `.savegame_paths` (array). If missing, derive array from single `savegame_path` (dir).
-  
+
   # --- Read savegame paths (array) and legacy single path from game.json
   USERNAME="$(id -un)"
-
-  # SAVEGAME_PATHS: empty by default if key missing/null/non-array
-  # Produces 0..N newline-separated entries; mapfile -> bash array
+  
+  # SAVEGAME_PATHS: [] if missing/null; newline-separated -> bash array
   mapfile -t SAVEGAME_PATHS < <(jq -r '
-    # default to [] if missing/null
     ( .savegame_paths // [] )
-    # only accept arrays
     | (if type=="array" then . else [] end)
-    # keep only non-empty strings and not the literal "null"
     | map(select(type=="string" and . != "" and . != "null"))
-  | .[]
+    | .[]
   ' "$GAME_CONFIG")
-    
-  # Legacy single path: empty if missing/null
+  
+  # Legacy single path
   SINGLE_SAVE_PATH="$(jq -r '
     ( .savegame_path // empty )
     | select(. != null and . != "null" and . != "")
   ' "$GAME_CONFIG")"
   
-  # --- Build the templated bash array literal used by scripts
+  # --- Build both: a literal for templating AND a sanitized array for install-time use
   SAVE_PATTERNS_ARRAY_LIT="()"
+  SAVE_PATTERNS_SAN=()
+  
   if [[ ${#SAVEGAME_PATHS[@]} -gt 0 ]]; then
-    # Use patterns as-is (relative to game root; wildcards & trailing / allowed)
     tmp=()
     for p in "${SAVEGAME_PATHS[@]}"; do
-      # expand $(whoami) in user-provided patterns so scripts see real paths
+      # Expand $(whoami) once, centrally
       p="${p//\$(whoami)/$USERNAME}"
       tmp+=("'$p'")
+      SAVE_PATTERNS_SAN+=("$p")
     done
     SAVE_PATTERNS_ARRAY_LIT="(${tmp[*]})"
   
   elif [[ -n "$SINGLE_SAVE_PATH" ]]; then
-    # Backward compat: treat as directory semantics + recursive content
+    # Back-compat: treat as directory + recursive export
     CLEAN="${SINGLE_SAVE_PATH%/}/"
     RECUR="${SINGLE_SAVE_PATH%/}/**"
     SAVE_PATTERNS_ARRAY_LIT="('$CLEAN' '$RECUR')"
+    SAVE_PATTERNS_SAN+=("$CLEAN" "$RECUR")
   
   else
-    # No whitelist: scripts will fall back to baseline-diff logic.
     SAVE_PATTERNS_ARRAY_LIT="()"
+    SAVE_PATTERNS_SAN=()
   fi
+  
   
    # ... Slot-Tools generieren
   for TEMPLATE_BASENAME in export_save_to_slot import_slot_to_save list_slots delete_slot; do
@@ -117,8 +139,15 @@ if "$ENGINE_SCRIPT" "$GAME_ID"; then
     chmod +x "$TARGET_PATH"
   done
 
+  # Pre-create all parent dirs implied by patterns
+  if [[ "${ENGINE,,}" == "dosbox" ]]; then
+    for p in "${SAVE_PATTERNS_SAN[@]}"; do
+      create_dir_from_pattern "$p"
+    done
+  fi
+  
   # --- Baseline schreiben: alle Dateien direkt nach Installation (relativ zum INSTALL_DIR)
-  LC_ALL=C find "$INSTALL_DIR" -type f -printf '%P\n' | LC_ALL=C sort > "$INSTALL_DIR/.install_baseline.lst"
+  LC_ALL=C find "$INSTALL_DIR" -type f -printf '%P\n' | LC_ALL=C sort > "$BASELINE_FILE"
 
 else
   echo -e "${RED}Engine-Installation fehlgeschlagen, Slot-Tools nicht erzeugt.${NC}"
