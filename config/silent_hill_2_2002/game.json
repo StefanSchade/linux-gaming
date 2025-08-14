@@ -1,0 +1,18 @@
+{
+  "engine": "WINEBOOT",
+  "wine_arch": "win32",
+  "wine_version": "win7",
+  "installer_type": "MULTI_DISC_ZIP",
+  "installer_files": [
+    "Silent-Hill-2-Restless-Dreams_Win_EN_US_CD1.zip",
+    "Silent-Hill-2-Restless-Dreams_Win_EN_US_CD2.zip",
+    "Silent-Hill-2-Restless-Dreams_Win_EN_US_CD3.zip"
+  ],
+  "exe_path": "Program Files/Konami/SILENT HILL 2/",
+  "exe_file": "sh2pc.exe",
+  "post_install": ["SH2EEsetup.exe"],
+  "savegame_paths": [
+    "prefix/drive_c/Program Files/Konami/SILENT HILL 2/save/"
+  ]
+}
+
