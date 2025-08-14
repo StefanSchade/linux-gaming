@@ -83,7 +83,7 @@ fi
 # prepare installation path
 INSTALL_DIR="${INSTALL_PATH%/}/$GAME_ID/install/"
 GAME_DIR="${INSTALL_PATH%/}/$GAME_ID/"
-mkdir -p "$INSTALL_DIR"
+# mkdir -p "$INSTALL_DIR"
 echo "${RED}$INSTALL_DIR${NC}"
 
 if [[ -n "$(ls -A "$INSTALL_DIR")" ]]; then
