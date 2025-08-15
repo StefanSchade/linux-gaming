@@ -310,18 +310,41 @@ fi
 echo -e "${GREEN}Installation abgeschlossen.${NC}"
 
 # ------------------------------------------------------------
-# Convenience run script
+# Convenience run script (case-insensitive resolve)
 # ------------------------------------------------------------
-if [[ -n "${HOST_GAME_DIR:-}" && -n "${EXE_FILE_WIN:-}" ]]; then
-  RUN_SH="${INSTALL_DIR%/}/run.sh"
-  cat >"$RUN_SH" <<EOF
+if [[ -n "${EXE_PATH_WIN:-}" && -n "${EXE_FILE_WIN:-}" ]]; then
+  # Compute host path (may have wrong case)
+  HOST_GAME_DIR="$(to_host_path_from_win_c "$EXE_PATH_WIN")"
+
+  # If the directory doesn't exist due to case, try to find it case-insensitively
+  if [[ ! -d "$HOST_GAME_DIR" ]]; then
+    parent_dir="$(dirname "$HOST_GAME_DIR")"
+    leaf_dir="$(basename "$HOST_GAME_DIR")"
+    ci_dir="$(find "$parent_dir" -maxdepth 1 -type d -iname "$leaf_dir" -print -quit || true)"
+    [[ -n "$ci_dir" ]] && HOST_GAME_DIR="$ci_dir"
+  fi
+
+  # Resolve EXE name case-insensitively as well
+  EXE_HOST_PATH="$HOST_GAME_DIR/$EXE_FILE_WIN"
+  if [[ ! -f "$EXE_HOST_PATH" ]]; then
+    ci_exe="$(find "$HOST_GAME_DIR" -maxdepth 1 -type f -iname "$EXE_FILE_WIN" -print -quit || true)"
+    [[ -n "$ci_exe" ]] && EXE_HOST_PATH="$ci_exe"
+  fi
+
+  if [[ -d "$HOST_GAME_DIR" && -f "$EXE_HOST_PATH" ]]; then
+    RUN_SH="${INSTALL_DIR%/}/run.sh"
+    cat >"$RUN_SH" <<EOF
 #!/bin/bash
-set -e
+set -euo pipefail
 export WINEPREFIX="${WINEPREFIX}"
-cd "${HOST_GAME_DIR}"
-exec wine start /unix "${HOST_GAME_DIR%/}/${EXE_FILE_WIN}"
+GAME_DIR="${HOST_GAME_DIR}"
+cd "\$GAME_DIR"
+exec wine "./$(basename "$EXE_HOST_PATH")"
 EOF
-  chmod +x "$RUN_SH"
-  echo -e "${GREEN}Run-Script:${NC} $RUN_SH"
+    chmod +x "$RUN_SH"
+    echo -e "${GREEN}Run-Script:${NC} $RUN_SH"
+  else
+    echo -e "${YELLOW}Konnte Installationspfad/EXE nicht sicher auflösen. Überspringe run.sh-Erzeugung.${NC}"
+  fi
 fi
 

@@ -8,11 +8,11 @@
     "Silent-Hill-2-Restless-Dreams_Win_EN_US_CD2.zip",
     "Silent-Hill-2-Restless-Dreams_Win_EN_US_CD3.zip"
   ],
-  "exe_path": "Program Files/Konami/SILENT HILL 2/",
+  "exe_path": "Program Files/Konami/Silent Hill 2/",
   "exe_file": "sh2pc.exe",
   "post_install": ["SH2EEsetup.exe"],
   "savegame_paths": [
-    "prefix/drive_c/Program Files/Konami/SILENT HILL 2/save/"
+    "prefix/drive_c/Program Files/Konami/Silent Hill 2/save/"
   ]
 }
 
