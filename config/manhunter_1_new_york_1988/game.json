@@ -1,6 +1,8 @@
 {
   "engine": "DOSBOX",
-  "installers": ["Manhunter-New-York_DOS_EN.zip"],
+  "installers": [
+    "Manhunter-New-York_DOS_EN.zip"
+  ],
   "pcspeaker": "true",
   "scaler": "normal2x",
   "memsize": "8",

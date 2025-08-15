@@ -4,7 +4,7 @@
   "copy_files": [
     {
       "from": "__support/save/ROSTER.DTA",
-      "to":   "ROSTER.DTA"
+      "to": "ROSTER.DTA"
     }
   ],
   "fullscreen": "false",
@@ -15,7 +15,6 @@
   "ems": "false",
   "pcspeaker": "true",
   "savegame_paths": [
-	  "ROSTER.DTA"
+    "ROSTER.DTA"
   ]
 }
-

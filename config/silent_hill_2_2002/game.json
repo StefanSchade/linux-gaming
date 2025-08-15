@@ -1,5 +1,5 @@
 {
-  "engine": "WINEBOOT",
+  "engine": "WINE-DISK-MEDIA",
   "wine_arch": "win32",
   "wine_version": "win7",
   "installer_type": "MULTI_DISC_ZIP",
@@ -10,9 +10,10 @@
   ],
   "exe_path": "Program Files/Konami/Silent Hill 2/",
   "exe_file": "sh2pc.exe",
-  "post_install": ["SH2EEsetup.exe"],
+  "post_install": [
+    "SH2EEsetup.exe"
+  ],
   "savegame_paths": [
     "prefix/drive_c/Program Files/Konami/Silent Hill 2/save/"
   ]
 }
-

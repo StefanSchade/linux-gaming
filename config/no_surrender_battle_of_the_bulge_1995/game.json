@@ -1,9 +1,10 @@
 {
-  "engine": "WINEBOOT",
+  "engine": "WINE-INSTALLER",
   "exe_path": "Program Files (x86)/Monte Cristo/1944 Winterschlacht in den Ardennen",
   "exe_file": "ArdennesSplash.exe",
-  "installers": ["Setup.exe"],
+  "installers": [
+    "Setup.exe"
+  ],
   "wine_version": "winxp",
   "savegame_path": "prefix/drive_c/Program Files (x86)/Monte Cristo/1944 Winterschlacht in den Ardennen/Save"
 }
-

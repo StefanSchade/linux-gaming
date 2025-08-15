@@ -1,11 +1,15 @@
 {
-  "engine": "WINEBOOT",
-  "installer_args": ["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-"],
+  "engine": "WINE-INSTALLER",
+  "installer_args": [
+    "/VERYSILENT",
+    "/SUPPRESSMSGBOXES",
+    "/NORESTART",
+    "/SP-"
+  ],
   "exe_path": "GOG Games/18 Wheels of Steel Hard Truck/",
   "exe_file": "Hard Truck 18 Wheels of Steel.exe",
   "wine_version": "win7",
   "savegame_paths": [
-	  "prefix/drive_c/GOG Games/18 Wheels of Steel Hard Truck/game/usr/save/"
+    "prefix/drive_c/GOG Games/18 Wheels of Steel Hard Truck/game/usr/save/"
   ]
 }
-

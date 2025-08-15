@@ -3,6 +3,8 @@
   "installer": "Dune_DOS_EN_ISO-Version.zip",
   "installer_type": "iso_runtime",
   "exe_file": "DUNE.EXE",
-  "savegame_paths": ["DUNECD/", "DUNECD/*.SAV"]
+  "savegame_paths": [
+    "DUNECD/",
+    "DUNECD/*.SAV"
+  ]
 }
-

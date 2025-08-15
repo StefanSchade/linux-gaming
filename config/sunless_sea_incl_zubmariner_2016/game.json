@@ -1,10 +1,15 @@
 {
-  "engine": "WINEBOOT",
+  "engine": "WINE-INSTALLER",
   "installers": [
     "setup_sunless_sea_2.2.11.3212_(59940).exe",
     "setup_sunless_sea_zubmariner_2.2.11.3212_(59940).exe"
   ],
-  "installer_args": ["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-"],
+  "installer_args": [
+    "/VERYSILENT",
+    "/SUPPRESSMSGBOXES",
+    "/NORESTART",
+    "/SP-"
+  ],
   "exe_path": "GOG Games/Sunless Sea",
   "exe_file": "Sunless Sea.exe",
   "wine_version": "win10",
